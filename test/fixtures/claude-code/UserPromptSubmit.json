@@ -1,0 +1,7 @@
+{
+  "session_id": "sess-abc123",
+  "cwd": "/Users/dev/project",
+  "hook_event_name": "UserPromptSubmit",
+  "transcript_path": "/Users/dev/.claude/projects/project/sess-abc123.jsonl",
+  "permission_mode": "default"
+}
