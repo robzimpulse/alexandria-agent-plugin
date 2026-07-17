@@ -1,5 +1,22 @@
 {
   "name": "alexandria-capture",
   "description": "Sends Codex hook events to Alexandria for cross-session memory capture.",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/dist/cli.cjs\"" }]
+      }
+    ],
+    "SessionStart": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/dist/cli.cjs\"" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/dist/cli.cjs\"" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/dist/cli.cjs\"" }] }
+    ]
+  }
 }
