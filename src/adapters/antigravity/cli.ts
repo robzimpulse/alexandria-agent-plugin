@@ -10,15 +10,15 @@ const mode = process.argv[2];
 
 switch (mode) {
   case "pre":
-    await runStdioHook(translatePreToolUse, '{"decision":"allow"}');
+    runStdioHook(translatePreToolUse, '{"decision":"allow"}');
     break;
   case "post":
-    await runStdioHook(translatePostToolUse, "{}");
+    runStdioHook(translatePostToolUse, "{}");
     break;
   case "preinvocation":
-    await runStdioHook(translatePreInvocation, "{}");
+    runStdioHook(translatePreInvocation, "{}");
     break;
   case "stop":
-    await runStdioHook(translateStop, '{"decision":""}');
+    runStdioHook(translateStop, '{"decision":""}');
     break;
 }
