@@ -1,0 +1,8 @@
+{
+  "alexandria-capture": {
+    "PreToolUse": [{ "matcher": "*", "hooks": [{ "command": "node /REPLACE/WITH/ABSOLUTE/PATH/dist/cli.cjs pre" }] }],
+    "PostToolUse": [{ "matcher": "*", "hooks": [{ "command": "node /REPLACE/WITH/ABSOLUTE/PATH/dist/cli.cjs post" }] }],
+    "PreInvocation": [{ "hooks": [{ "command": "node /REPLACE/WITH/ABSOLUTE/PATH/dist/cli.cjs preinvocation" }] }],
+    "Stop": [{ "hooks": [{ "command": "node /REPLACE/WITH/ABSOLUTE/PATH/dist/cli.cjs stop" }] }]
+  }
+}

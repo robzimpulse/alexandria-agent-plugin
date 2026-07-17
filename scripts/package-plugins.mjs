@@ -6,9 +6,25 @@ import { fileURLToPath } from "node:url";
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const platforms = [
-  { name: "claude-code", manifestDir: ".claude-plugin" },
-  { name: "codex", manifestDir: ".codex-plugin" },
-  { name: "hermes", manifestDir: null, shebang: true },
+  {
+    name: "claude-code",
+    pluginJsonDest: ".claude-plugin/plugin.json",
+    hooksJsonSrc: "manifest/hooks/hooks.json",
+    hooksJsonDest: "hooks/hooks.json",
+  },
+  {
+    name: "codex",
+    pluginJsonDest: ".codex-plugin/plugin.json",
+    hooksJsonSrc: "manifest/hooks/hooks.json",
+    hooksJsonDest: "hooks/hooks.json",
+  },
+  { name: "hermes", shebang: true },
+  {
+    name: "antigravity",
+    pluginJsonDest: "plugin.json",
+    hooksJsonSrc: "manifest/hooks.json",
+    hooksJsonDest: "hooks.json",
+  },
 ];
 
 for (const platform of platforms) {
@@ -30,18 +46,16 @@ for (const platform of platforms) {
     chmodSync(outfile, 0o755);
   }
 
-  if (platform.manifestDir) {
-    mkdirSync(join(pluginDir, platform.manifestDir), { recursive: true });
-    copyFileSync(
-      join(srcDir, "manifest/plugin.json"),
-      join(pluginDir, platform.manifestDir, "plugin.json")
-    );
+  if (platform.pluginJsonDest) {
+    const dest = join(pluginDir, platform.pluginJsonDest);
+    mkdirSync(dirname(dest), { recursive: true });
+    copyFileSync(join(srcDir, "manifest/plugin.json"), dest);
+  }
 
-    mkdirSync(join(pluginDir, "hooks"), { recursive: true });
-    copyFileSync(
-      join(srcDir, "manifest/hooks/hooks.json"),
-      join(pluginDir, "hooks/hooks.json")
-    );
+  if (platform.hooksJsonDest) {
+    const dest = join(pluginDir, platform.hooksJsonDest);
+    mkdirSync(dirname(dest), { recursive: true });
+    copyFileSync(join(srcDir, platform.hooksJsonSrc), dest);
   }
 
   console.log(`Packaged ${platform.name} -> plugins/${platform.name}`);
