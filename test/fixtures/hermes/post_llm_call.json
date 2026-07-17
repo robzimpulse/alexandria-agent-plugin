@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "post_llm_call",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "sess-abc123",
+  "cwd": "/home/user/project",
+  "extra": {}
+}
