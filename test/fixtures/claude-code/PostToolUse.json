@@ -1,0 +1,10 @@
+{
+  "session_id": "sess-abc123",
+  "cwd": "/Users/dev/project",
+  "hook_event_name": "PostToolUse",
+  "transcript_path": "/Users/dev/.claude/projects/project/sess-abc123.jsonl",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": { "command": "npm test", "description": "Run tests" },
+  "tool_response": { "stdout": "5 passed", "stderr": "", "exitCode": 0 }
+}
