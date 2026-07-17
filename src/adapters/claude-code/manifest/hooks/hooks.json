@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/adapters/claude-code/cli.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/adapters/claude-code/cli.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/adapters/claude-code/cli.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/adapters/claude-code/cli.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/adapters/claude-code/cli.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }

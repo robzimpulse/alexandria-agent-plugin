@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/dist/adapters/codex/cli.js\""
+            "command": "node \"${PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/dist/adapters/codex/cli.js\""
+            "command": "node \"${PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/dist/adapters/codex/cli.js\""
+            "command": "node \"${PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/dist/adapters/codex/cli.js\""
+            "command": "node \"${PLUGIN_ROOT}/dist/cli.cjs\""
           }
         ]
       }
