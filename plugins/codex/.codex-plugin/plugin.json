@@ -1,0 +1,5 @@
+{
+  "name": "alexandria-capture",
+  "description": "Sends Codex hook events to Alexandria for cross-session memory capture.",
+  "version": "0.1.0"
+}
