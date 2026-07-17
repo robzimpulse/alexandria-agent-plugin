@@ -9,7 +9,7 @@ Plugins that capture coding-agent hook events (tool calls, session lifecycle) fr
 | Claude Code | Implemented, packaged in `plugins/claude-code/` |
 | Codex | Implemented, packaged in `plugins/codex/` |
 | Antigravity | Not yet implemented |
-| Hermes | Not yet implemented |
+| Hermes | Implemented, packaged in `plugins/hermes/` |
 | Opencode | Not yet implemented |
 
 ## Structure
@@ -20,6 +20,7 @@ src/
   adapters/
     claude-code/    translate() + cli.ts + manifest source, per platform
     codex/
+    hermes/
 test/
   core/           Unit tests for the shared core
   adapters/       Unit tests for each adapter's translate()
@@ -27,6 +28,7 @@ test/
 plugins/
   claude-code/    Installable Claude Code plugin (self-contained bundle + manifest)
   codex/            Installable Codex plugin (self-contained bundle + manifest)
+  hermes/            Installable Hermes plugin (self-contained, executable bundle — no manifest; config.yaml snippet lives in its own README)
 scripts/
   package-plugins.mjs   Bundles each adapter into its plugins/<platform>/ directory
 ```
@@ -42,4 +44,4 @@ npm run package:plugins         # bundles each adapter into plugins/<platform>/d
 
 ## Installing a plugin
 
-See [`plugins/claude-code/README.md`](plugins/claude-code/README.md) or [`plugins/codex/README.md`](plugins/codex/README.md) for platform-specific install instructions.
+See [`plugins/claude-code/README.md`](plugins/claude-code/README.md), [`plugins/codex/README.md`](plugins/codex/README.md), or [`plugins/hermes/README.md`](plugins/hermes/README.md) for platform-specific install instructions.
