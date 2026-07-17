@@ -1,0 +1,11 @@
+{
+  "name": "alexandria-agent-plugin",
+  "owner": { "name": "Robyarta" },
+  "plugins": [
+    {
+      "name": "alexandria-capture",
+      "source": "./plugins/claude-code",
+      "description": "Sends Claude Code hook events to Alexandria for cross-session memory capture."
+    }
+  ]
+}
