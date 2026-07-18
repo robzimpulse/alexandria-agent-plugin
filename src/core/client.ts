@@ -43,22 +43,31 @@ export async function sendEvent(
     if (!response.ok) {
       throw new Error(`POST /api/hooks failed with status ${response.status}`);
     }
+    logOutcome(event, "SUCCESS", logDir);
   } catch (err) {
-    logFailure(event, err, logDir);
+    logOutcome(event, "FAIL", logDir, err);
   }
 }
 
-function logFailure(event: CanonicalHookEvent, err: unknown, logDir: string): void {
+function logOutcome(
+  event: CanonicalHookEvent,
+  status: "SUCCESS" | "FAIL",
+  logDir: string,
+  err?: unknown,
+): void {
   try {
     fs.mkdirSync(logDir, { recursive: true });
-    const line = JSON.stringify({
+    const line: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       platform: event.platform,
       hook_event_name: event.hook_event_name,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    fs.appendFileSync(path.join(logDir, "plugin.log"), line + "\n");
+      status,
+    };
+    if (err !== undefined) {
+      line.error = err instanceof Error ? err.message : String(err);
+    }
+    fs.appendFileSync(path.join(logDir, "plugin.log"), JSON.stringify(line) + "\n");
   } catch {
-    // Logging a failure must never itself throw.
+    // Logging must never throw.
   }
 }

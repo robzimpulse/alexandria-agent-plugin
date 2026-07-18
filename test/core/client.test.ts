@@ -52,7 +52,7 @@ describe("sendEvent", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer secret-key");
   });
 
-  it("never throws and does not write a log line on a successful 2xx response", async () => {
+  it("writes a SUCCESS log line on a successful 2xx response", async () => {
     const fetchFn = vi.fn(async () => new Response(null, { status: 200 }));
     const config: Config = { url: "https://alexandria.example.com" };
 
@@ -60,7 +60,10 @@ describe("sendEvent", () => {
       sendEvent(event, config, { fetchFn: fetchFn as unknown as typeof fetch, logDir })
     ).resolves.toBeUndefined();
 
-    expect(fs.existsSync(path.join(logDir, "plugin.log"))).toBe(false);
+    const logEntry = JSON.parse(fs.readFileSync(path.join(logDir, "plugin.log"), "utf8").trim());
+    expect(logEntry.platform).toBe("claude-code");
+    expect(logEntry.hook_event_name).toBe("PostToolUse");
+    expect(logEntry.status).toBe("SUCCESS");
   });
 
   it("logs and swallows a non-2xx response instead of throwing", async () => {
@@ -74,6 +77,7 @@ describe("sendEvent", () => {
     const logEntry = JSON.parse(fs.readFileSync(path.join(logDir, "plugin.log"), "utf8").trim());
     expect(logEntry.platform).toBe("claude-code");
     expect(logEntry.hook_event_name).toBe("PostToolUse");
+    expect(logEntry.status).toBe("FAIL");
     expect(logEntry.error).toContain("500");
   });
 
@@ -87,7 +91,8 @@ describe("sendEvent", () => {
       sendEvent(event, config, { fetchFn: fetchFn as unknown as typeof fetch, logDir })
     ).resolves.toBeUndefined();
 
-    const logContents = fs.readFileSync(path.join(logDir, "plugin.log"), "utf8");
-    expect(logContents).toContain("aborted");
+    const logEntry = JSON.parse(fs.readFileSync(path.join(logDir, "plugin.log"), "utf8").trim());
+    expect(logEntry.status).toBe("FAIL");
+    expect(logEntry.error).toContain("aborted");
   });
 });
