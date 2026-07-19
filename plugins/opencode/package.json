@@ -1,0 +1,11 @@
+{
+  "name": "@alexandria/opencode-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/plugin.js",
+  "exports": {
+    ".": "./dist/plugin.js"
+  },
+  "description": "Forwards OpenCode hook events to Alexandria for cross-session memory capture."
+}
