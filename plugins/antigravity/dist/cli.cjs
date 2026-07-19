@@ -91,6 +91,47 @@ function loadConfig(configDir = path2.join(os2.homedir(), ".alexandria"), env = 
 }
 
 // src/core/runner.ts
+var import_node_child_process = require("node:child_process");
+var import_node_os = require("node:os");
+var import_node_path = require("node:path");
+var import_node_fs = require("node:fs");
+var HERMES_HOME = (0, import_node_path.normalize)((0, import_node_path.join)((0, import_node_os.homedir)(), ".hermes"));
+var STATE_DB = (0, import_node_path.join)(HERMES_HOME, "state.db");
+function resolveProjectPath(cwd) {
+  try {
+    return (0, import_node_child_process.execSync)("git rev-parse --show-toplevel", {
+      cwd,
+      encoding: "utf8",
+      timeout: 3e3,
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+  } catch {
+    return cwd;
+  }
+}
+function resolveHermesCwd(session_id, cwd) {
+  if (session_id && (0, import_node_fs.existsSync)(STATE_DB)) {
+    try {
+      const rows = (0, import_node_child_process.execSync)(
+        `sqlite3 "${STATE_DB}" "SELECT git_repo_root, cwd FROM sessions WHERE id='${session_id.replace(/'/g, "''")}'"`,
+        { encoding: "utf8", timeout: 3e3, stdio: ["ignore", "pipe", "ignore"] }
+      ).trim().split("|");
+      if (rows.length >= 2) {
+        const gitRoot2 = rows[0];
+        const dbCwd = rows[1];
+        if (gitRoot2) return gitRoot2;
+        if (dbCwd) {
+          const r = resolveProjectPath(dbCwd);
+          if (r !== dbCwd) return r;
+        }
+      }
+    } catch {
+    }
+  }
+  const gitRoot = resolveProjectPath(cwd);
+  if (gitRoot !== cwd) return gitRoot;
+  return cwd;
+}
 var defaultIO = {
   readStdin: () => new Promise((resolve) => {
     let data = "";
@@ -111,6 +152,7 @@ async function runStdioHook(translate, stdout = "{}", io = defaultIO) {
   try {
     const raw = JSON.parse(await io.readStdin());
     const event = await translate(raw);
+    event.cwd = resolveHermesCwd(event.session_id, event.cwd);
     await sendEvent(event, loadConfig());
   } catch {
   }
@@ -119,7 +161,7 @@ async function runStdioHook(translate, stdout = "{}", io = defaultIO) {
 }
 
 // src/adapters/antigravity/translate.ts
-var import_node_fs = require("node:fs");
+var import_node_fs2 = require("node:fs");
 function commonMapped(raw) {
   return {
     session_id: raw.conversationId,
@@ -144,7 +186,7 @@ async function translatePostToolUse(raw) {
     hook_event_name: "PostToolUse"
   };
   try {
-    const content = await import_node_fs.promises.readFile(payload.transcriptPath, "utf8");
+    const content = await import_node_fs2.promises.readFile(payload.transcriptPath, "utf8");
     const entry = content.split("\n").filter((line) => line.trim().length > 0).map((line) => JSON.parse(line)).find((line) => line.stepIdx === payload.stepIdx);
     if (entry) {
       event.tool_name = entry.toolName;
