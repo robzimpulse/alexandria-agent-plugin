@@ -1,0 +1,8 @@
+{
+  "session_id": "sess-abc123",
+  "transcript_path": "/Users/dev/.codex/sessions/sess-abc123.jsonl",
+  "cwd": "/Users/dev/project",
+  "hook_event_name": "SessionEnd",
+  "model": "gpt-5-codex",
+  "permission_mode": "default"
+}
