@@ -45,7 +45,7 @@ export async function sendEvent(
     if (!response.ok) {
       throw new Error(`POST /api/hooks failed with status ${response.status}`);
     }
-    logOutcome(event, "SUCCESS", logDir, undefined, body);
+    logOutcome(event, "SUCCESS", logDir, body);
   } catch (err) {
     logOutcome(event, "FAIL", logDir, err, body);
   }
