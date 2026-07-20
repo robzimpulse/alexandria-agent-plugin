@@ -25,18 +25,21 @@ const platforms = [
     hooksJsonSrc: "manifest/hooks.json",
     hooksJsonDest: "hooks.json",
   },
+  { name: "opencode", format: "esm", entryFile: "plugin.ts", outfileBasename: "plugin.js", shebang: false },
 ];
 
 for (const platform of platforms) {
   const srcDir = join(repoRoot, "src/adapters", platform.name);
   const pluginDir = join(repoRoot, "plugins", platform.name);
-  const outfile = join(pluginDir, "dist/cli.cjs");
+  const entryFile = platform.entryFile || "cli.ts";
+  const outfileBasename = platform.outfileBasename || "cli.cjs";
+  const outfile = join(pluginDir, "dist", outfileBasename);
 
   await build({
-    entryPoints: [join(srcDir, "cli.ts")],
+    entryPoints: [join(srcDir, entryFile)],
     bundle: true,
     platform: "node",
-    format: "cjs",
+    format: platform.format || "cjs",
     outfile,
     logLevel: "info",
     banner: platform.shebang ? { js: "#!/usr/bin/env node" } : undefined,

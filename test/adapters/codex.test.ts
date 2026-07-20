@@ -29,7 +29,7 @@ describe("codex translate", () => {
     });
   });
 
-  for (const eventName of ["SessionStart", "UserPromptSubmit", "Stop"]) {
+  for (const eventName of ["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"]) {
     it(`maps ${eventName}: tool_name/tool_input/tool_response all absent`, () => {
       const raw = loadFixture(eventName);
 

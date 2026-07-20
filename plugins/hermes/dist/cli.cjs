@@ -162,13 +162,21 @@ async function runStdioHook(translate2, stdout = "{}", io = defaultIO) {
 }
 
 // src/adapters/hermes/translate.ts
+var NATIVE_TO_CANONICAL = {
+  on_session_start: "SessionStart",
+  on_session_reset: "SessionStart",
+  pre_llm_call: "UserPromptSubmit",
+  post_tool_call: "PostToolUse",
+  post_llm_call: "Stop",
+  on_session_end: "SessionEnd"
+};
 function translate(raw) {
   const payload = raw;
   const event = {
     session_id: payload.session_id,
     cwd: payload.cwd,
     platform: "hermes",
-    hook_event_name: payload.hook_event_name
+    hook_event_name: NATIVE_TO_CANONICAL[payload.hook_event_name] ?? payload.hook_event_name
   };
   if (payload.hook_event_name === "post_tool_call") {
     event.tool_name = payload.tool_name ?? void 0;
