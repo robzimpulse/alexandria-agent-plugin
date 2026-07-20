@@ -21,16 +21,22 @@ describe("hermes translate", () => {
       session_id: raw.session_id,
       cwd: raw.cwd,
       platform: "hermes",
-      hook_event_name: "post_tool_call",
+      hook_event_name: "PostToolUse",
       tool_name: raw.tool_name,
       tool_input: raw.tool_input,
       tool_response: raw.extra.result,
     });
   });
 
-  for (const eventName of ["on_session_start", "pre_llm_call", "post_llm_call", "on_session_end"]) {
-    it(`maps ${eventName}: tool_name/tool_input/tool_response all absent despite null in the raw payload`, () => {
-      const raw = loadFixture(eventName);
+  for (const [nativeName, canonicalName] of [
+    ["on_session_start", "SessionStart"],
+    ["on_session_reset", "SessionStart"],
+    ["pre_llm_call", "UserPromptSubmit"],
+    ["post_llm_call", "Stop"],
+    ["on_session_end", "SessionEnd"],
+  ] as const) {
+    it(`maps ${nativeName} → ${canonicalName}: tool_name/tool_input/tool_response all absent despite null in the raw payload`, () => {
+      const raw = loadFixture(nativeName);
 
       const event = translate(raw);
 
@@ -38,7 +44,7 @@ describe("hermes translate", () => {
         session_id: raw.session_id,
         cwd: raw.cwd,
         platform: "hermes",
-        hook_event_name: eventName,
+        hook_event_name: canonicalName,
       });
       expect(event.tool_name).toBeUndefined();
       expect(event.tool_input).toBeUndefined();

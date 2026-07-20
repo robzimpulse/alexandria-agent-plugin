@@ -9,6 +9,15 @@ type HermesRawPayload = {
   extra?: Record<string, unknown>;
 };
 
+const NATIVE_TO_CANONICAL: Record<string, string> = {
+  on_session_start: "SessionStart",
+  on_session_reset: "SessionStart",
+  pre_llm_call: "UserPromptSubmit",
+  post_tool_call: "PostToolUse",
+  post_llm_call: "Stop",
+  on_session_end: "SessionEnd",
+};
+
 export function translate(raw: unknown): CanonicalHookEvent {
   const payload = raw as HermesRawPayload;
 
@@ -16,7 +25,7 @@ export function translate(raw: unknown): CanonicalHookEvent {
     session_id: payload.session_id,
     cwd: payload.cwd,
     platform: "hermes",
-    hook_event_name: payload.hook_event_name,
+    hook_event_name: NATIVE_TO_CANONICAL[payload.hook_event_name] ?? payload.hook_event_name,
   };
 
   if (payload.hook_event_name === "post_tool_call") {
