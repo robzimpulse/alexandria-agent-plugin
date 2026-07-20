@@ -66,6 +66,17 @@ function loadConfig(configDir = path2.join(os2.homedir(), ".alexandria"), env = 
   return apiKey ? { url, apiKey } : { url };
 }
 
+// src/adapters/shared/buildEventData.ts
+function buildEventData(overrides = {}) {
+  return {
+    prompt: null,
+    tool_name: null,
+    tool_input: null,
+    tool_response: null,
+    ...overrides
+  };
+}
+
 // src/adapters/opencode/translate.ts
 function createHandlers(sendEvent2, cwd) {
   return {
@@ -75,7 +86,8 @@ function createHandlers(sendEvent2, cwd) {
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "SessionStart",
-        event_data: input
+        event_data: buildEventData()
+        // signal-only, all null
       });
     },
     "message.updated": (input) => {
@@ -85,7 +97,9 @@ function createHandlers(sendEvent2, cwd) {
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "UserPromptSubmit",
-        event_data: input
+        event_data: buildEventData({
+          prompt: input.properties.info.content ?? null
+        })
       });
     },
     "tool.execute.after": (input, output) => {
@@ -94,7 +108,11 @@ function createHandlers(sendEvent2, cwd) {
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "PostToolUse",
-        event_data: { input, output }
+        event_data: buildEventData({
+          tool_name: input.tool,
+          tool_input: input.args,
+          tool_response: output.output
+        })
       });
     },
     "session.idle": (input) => {
@@ -103,7 +121,8 @@ function createHandlers(sendEvent2, cwd) {
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "SessionEnd",
-        event_data: input
+        event_data: buildEventData()
+        // signal-only, all null
       });
     },
     "session.deleted": (input) => {
@@ -112,7 +131,8 @@ function createHandlers(sendEvent2, cwd) {
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "SessionEnd",
-        event_data: input
+        event_data: buildEventData()
+        // signal-only, all null
       });
     }
   };

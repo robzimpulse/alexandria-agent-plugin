@@ -5,13 +5,20 @@ import { readStep, readLatestUserPrompt } from "../../../src/adapters/antigravit
 const transcriptPath = path.join(process.cwd(), "test/fixtures/antigravity/transcript.jsonl");
 
 describe("readStep", () => {
-  it("finds and returns the correct step entry by stepIdx", async () => {
-    const result = await readStep(transcriptPath, 19);
+  it("returns toolName, args from the PLANNER_RESPONSE and content from the next MODEL entry", async () => {
+    // step_index 2 = PLANNER_RESPONSE with run_command tool_call
+    // step_index 3 = MODEL RUN_COMMAND with result content
+    const result = await readStep(transcriptPath, 2);
     expect(result).toEqual({
       toolName: "run_command",
-      args: { CommandLine: "npm test" },
-      result: { stdout: "5 passed", exitCode: 0 },
+      args: { CommandLine: "npm test", Cwd: "/workspace/project", WaitMsBeforeAsync: "2000", toolAction: "Running tests", toolSummary: "npm test" },
+      result: expect.stringContaining("5 passed"),
     });
+  });
+
+  it("returns null when stepIdx is not a PLANNER_RESPONSE (no tool_calls)", async () => {
+    const result = await readStep(transcriptPath, 0);
+    expect(result).toBeNull();
   });
 
   it("returns null when stepIdx is not found", async () => {
@@ -26,9 +33,9 @@ describe("readStep", () => {
 });
 
 describe("readLatestUserPrompt", () => {
-  it("returns null (Antigravity transcript has no user prompt entries)", async () => {
+  it("returns the most recent user prompt (last USER_EXPLICIT/USER_INPUT entry)", async () => {
     const result = await readLatestUserPrompt(transcriptPath);
-    expect(result).toBeNull();
+    expect(result).toBe("fetch the data again");
   });
 
   it("returns null for nonexistent file", async () => {

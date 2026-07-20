@@ -28,8 +28,8 @@ describe("antigravity translatePostToolUse", () => {
     expect(event.event_data).toEqual({
       prompt: null,
       tool_name: "run_command",
-      tool_input: { CommandLine: "npm test" },
-      tool_response: { stdout: "5 passed", exitCode: 0 },
+      tool_input: { CommandLine: "npm test", Cwd: "/workspace/project", WaitMsBeforeAsync: "2000", toolAction: "Running tests", toolSummary: "npm test" },
+      tool_response: expect.stringContaining("5 passed"),
     });
   });
 

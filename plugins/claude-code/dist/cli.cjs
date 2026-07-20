@@ -158,15 +158,35 @@ async function runStdioHook(translate2, stdout = "{}", io = defaultIO) {
   io.exit(0);
 }
 
+// src/adapters/shared/buildEventData.ts
+function buildEventData(overrides = {}) {
+  return {
+    prompt: null,
+    tool_name: null,
+    tool_input: null,
+    tool_response: null,
+    ...overrides
+  };
+}
+
 // src/adapters/claude-code/translate.ts
 function translate(raw) {
   const payload = raw;
+  const eventDataFields = {};
+  if (payload.hook_event_name === "UserPromptSubmit" && payload.prompt !== void 0) {
+    eventDataFields.prompt = payload.prompt;
+  }
+  if (payload.hook_event_name === "PostToolUse") {
+    eventDataFields.tool_name = payload.tool_name ?? null;
+    eventDataFields.tool_input = payload.tool_input ?? null;
+    eventDataFields.tool_response = payload.tool_response ?? null;
+  }
   return {
     session_id: payload.session_id,
     project_name: payload.cwd,
     platform: "claude-code",
     hook_event_name: payload.hook_event_name,
-    event_data: raw
+    event_data: buildEventData(eventDataFields)
   };
 }
 
