@@ -13,37 +13,31 @@ function loadFixture(name: string): Record<string, unknown> {
 }
 
 describe("codex translate", () => {
-  it("maps PostToolUse: tool_name/tool_input/tool_response pass through, everything else dropped", () => {
+  it("maps PostToolUse: event_data carries the full raw payload", () => {
     const raw = loadFixture("PostToolUse");
-
     const event = translate(raw);
 
     expect(event).toEqual({
       session_id: raw.session_id,
-      cwd: raw.cwd,
+      project_name: raw.cwd,
       platform: "codex",
       hook_event_name: "PostToolUse",
-      tool_name: raw.tool_name,
-      tool_input: raw.tool_input,
-      tool_response: raw.tool_response,
+      event_data: raw,
     });
   });
 
   for (const eventName of ["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"]) {
-    it(`maps ${eventName}: tool_name/tool_input/tool_response all absent`, () => {
+    it(`maps ${eventName}: event_data carries the full raw payload`, () => {
       const raw = loadFixture(eventName);
-
       const event = translate(raw);
 
       expect(event).toEqual({
         session_id: raw.session_id,
-        cwd: raw.cwd,
+        project_name: raw.cwd,
         platform: "codex",
         hook_event_name: eventName,
+        event_data: raw,
       });
-      expect(event.tool_name).toBeUndefined();
-      expect(event.tool_input).toBeUndefined();
-      expect(event.tool_response).toBeUndefined();
     });
   }
 });
