@@ -4,7 +4,7 @@ import { sendEvent } from "./client.js";
 import { loadConfig } from "./config.js";
 import { execSync } from "node:child_process";
 import { homedir } from "node:os";
-import { join, normalize } from "node:path";
+import { basename, join, normalize } from "node:path";
 import { existsSync } from "node:fs";
 
 const HERMES_HOME = normalize(join(homedir(), ".hermes"));
@@ -23,7 +23,7 @@ function resolveProjectPath(cwd: string): string {
   }
 }
 
-function resolveHermesCwd(session_id: string, cwd: string): string {
+function resolveProjectName(session_id: string, cwd: string): string {
   // Tier 0: state.db git_repo_root (Hermes sets this for projects/repos)
   if (session_id && existsSync(STATE_DB)) {
     try {
@@ -34,11 +34,8 @@ function resolveHermesCwd(session_id: string, cwd: string): string {
       if (rows.length >= 2) {
         const gitRoot = rows[0];
         const dbCwd = rows[1];
-        if (gitRoot) return gitRoot;
-        if (dbCwd) {
-          const r = resolveProjectPath(dbCwd);
-          if (r !== dbCwd) return r;
-        }
+        const root = gitRoot ? gitRoot : (dbCwd ? resolveProjectPath(dbCwd) : "");
+        if (root) return basename(root);
       }
     } catch {
       // fall through
@@ -47,10 +44,13 @@ function resolveHermesCwd(session_id: string, cwd: string): string {
 
   // Tier 1: git rev-parse from payload cwd
   const gitRoot = resolveProjectPath(cwd);
-  if (gitRoot !== cwd) return gitRoot;
+  if (gitRoot) return basename(gitRoot);
 
-  // Tier 2: fallback
-  return cwd;
+  // Tier 2: basename of cwd
+  if (cwd) return basename(cwd);
+
+  // Tier 3: fallback
+  return "General";
 }
 
 export type RunnerIO = {
@@ -85,7 +85,7 @@ export async function runStdioHook(
   try {
     const raw = JSON.parse(await io.readStdin());
     const event = await translate(raw);
-    event.cwd = resolveHermesCwd(event.session_id, event.cwd);
+    event.project_name = resolveProjectName(event.session_id, event.project_name);
     await sendEvent(event, loadConfig());
   } catch {
     // Fail-silent: a bad/malformed translate() must never surface as a

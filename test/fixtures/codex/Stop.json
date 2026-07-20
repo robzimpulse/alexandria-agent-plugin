@@ -1,7 +1,7 @@
 {
   "session_id": "sess-abc123",
   "transcript_path": "/Users/dev/.codex/sessions/sess-abc123.jsonl",
-  "cwd": "/Users/dev/project",
+  "project_name": "/Users/dev/project",
   "hook_event_name": "Stop",
   "model": "gpt-5-codex",
   "turn_id": "turn-42",
