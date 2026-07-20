@@ -21,18 +21,11 @@ const NATIVE_TO_CANONICAL: Record<string, string> = {
 export function translate(raw: unknown): CanonicalHookEvent {
   const payload = raw as HermesRawPayload;
 
-  const event: CanonicalHookEvent = {
+  return {
     session_id: payload.session_id,
-    cwd: payload.cwd,
+    project_name: payload.cwd,
     platform: "hermes",
     hook_event_name: NATIVE_TO_CANONICAL[payload.hook_event_name] ?? payload.hook_event_name,
+    event_data: raw,
   };
-
-  if (payload.hook_event_name === "post_tool_call") {
-    event.tool_name = payload.tool_name ?? undefined;
-    event.tool_input = payload.tool_input ?? undefined;
-    event.tool_response = payload.extra?.result;
-  }
-
-  return event;
 }
