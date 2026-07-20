@@ -20,8 +20,6 @@ export async function sendEvent(
   const logDir = deps.logDir ?? path.join(os.homedir(), ".alexandria");
   const timeoutMs = deps.timeoutMs ?? 3000;
 
-  const body = JSON.stringify(event);
-
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -35,7 +33,7 @@ export async function sendEvent(
       response = await fetchFn(`${config.url}/api/hooks`, {
         method: "POST",
         headers,
-        body,
+        body: JSON.stringify(event),
         signal: controller.signal,
       });
     } finally {
@@ -45,9 +43,9 @@ export async function sendEvent(
     if (!response.ok) {
       throw new Error(`POST /api/hooks failed with status ${response.status}`);
     }
-    logOutcome(event, "SUCCESS", logDir, body);
+    logOutcome(event, "SUCCESS", logDir);
   } catch (err) {
-    logOutcome(event, "FAIL", logDir, err, body);
+    logOutcome(event, "FAIL", logDir, err);
   }
 }
 
@@ -56,7 +54,6 @@ function logOutcome(
   status: "SUCCESS" | "FAIL",
   logDir: string,
   err?: unknown,
-  body?: string,
 ): void {
   try {
     fs.mkdirSync(logDir, { recursive: true });
@@ -65,7 +62,6 @@ function logOutcome(
       platform: event.platform,
       hook_event_name: event.hook_event_name,
       status,
-      body,
     };
     if (err !== undefined) {
       line.error = err instanceof Error ? err.message : String(err);
