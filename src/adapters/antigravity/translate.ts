@@ -1,15 +1,12 @@
 import type { CanonicalHookEvent } from "../../core/schema.js";
-import { promises as fs } from "node:fs";
+import { buildEventData } from "../shared/buildEventData.js";
+import { readStep, readLatestUserPrompt } from "./transcript.js";
 
 type CommonFields = {
   conversationId: string;
   workspacePaths: string[];
   transcriptPath: string;
   artifactDirectoryPath: string;
-};
-
-type PreToolUsePayload = CommonFields & {
-  toolCall?: { name?: string; args?: unknown };
 };
 
 type PostToolUsePayload = CommonFields & {
@@ -36,51 +33,52 @@ function commonMapped(raw: CommonFields): Pick<CanonicalHookEvent, "session_id" 
   };
 }
 
-export function translatePreToolUse(raw: unknown): CanonicalHookEvent {
-  const payload = raw as PreToolUsePayload;
-  return {
-    ...commonMapped(payload),
-    platform: "antigravity",
-    hook_event_name: "PreToolUse",
-    event_data: raw,
-  };
-}
+// translatePreToolUse removed — PreToolUse is not in the canonical event set.
 
 export async function translatePostToolUse(raw: unknown): Promise<CanonicalHookEvent> {
   const payload = raw as PostToolUsePayload;
-  let eventData: unknown = raw;
+  let toolName: string | null = null;
+  let toolInput: unknown = null;
+  let toolResponse: unknown = null;
 
   try {
-    const content = await fs.readFile(payload.transcriptPath, "utf8");
-    const entry = content
-      .split("\n")
-      .filter((line) => line.trim().length > 0)
-      .map((line) => JSON.parse(line))
-      .find((line) => line.stepIdx === payload.stepIdx);
-
+    const entry = await readStep(payload.transcriptPath, payload.stepIdx);
     if (entry) {
-      // Merge transcript-enriched fields into event_data
-      eventData = { ...raw, toolName: entry.toolName, args: entry.args, result: entry.result };
+      toolName = entry.toolName;
+      toolInput = entry.args;
+      toolResponse = entry.result;
     }
   } catch {
-    // Degrade gracefully: never throw on a missing/malformed/unmatched transcript.
+    // Degrade gracefully.
   }
 
   return {
     ...commonMapped(payload),
     platform: "antigravity",
     hook_event_name: "PostToolUse",
-    event_data: eventData,
+    event_data: buildEventData({
+      tool_name: toolName,
+      tool_input: toolInput,
+      tool_response: toolResponse,
+    }),
   };
 }
 
-export function translatePreInvocation(raw: unknown): CanonicalHookEvent {
+export async function translatePreInvocation(raw: unknown): Promise<CanonicalHookEvent> {
   const payload = raw as PreInvocationPayload;
+  const isSessionStart = payload.invocationNum === 0;
+
+  let prompt: string | null = null;
+  if (!isSessionStart) {
+    // Antigravity transcript doesn't store user prompts; gracefully return null.
+    prompt = await readLatestUserPrompt(payload.transcriptPath);
+  }
+
   return {
     ...commonMapped(payload),
     platform: "antigravity",
-    hook_event_name: payload.invocationNum === 0 ? "SessionStart" : "UserPromptSubmit",
-    event_data: raw,
+    hook_event_name: isSessionStart ? "SessionStart" : "UserPromptSubmit",
+    event_data: buildEventData({ prompt }),
   };
 }
 
@@ -90,6 +88,6 @@ export function translateStop(raw: unknown): CanonicalHookEvent {
     ...commonMapped(payload),
     platform: "antigravity",
     hook_event_name: "Stop",
-    event_data: raw,
+    event_data: buildEventData(), // signal-only, all null
   };
 }

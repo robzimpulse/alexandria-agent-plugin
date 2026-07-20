@@ -1,6 +1,5 @@
 import { runStdioHook } from "../../core/runner.js";
 import {
-  translatePreToolUse,
   translatePostToolUse,
   translatePreInvocation,
   translateStop,
@@ -10,7 +9,7 @@ const mode = process.argv[2];
 
 switch (mode) {
   case "pre":
-    runStdioHook(translatePreToolUse, '{"decision":"allow"}');
+    // PreToolUse removed from canonical event set — this case is no longer dispatched.
     break;
   case "post":
     runStdioHook(translatePostToolUse, "{}");

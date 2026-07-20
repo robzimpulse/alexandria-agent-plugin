@@ -12,6 +12,7 @@ import { runStdioHook } from "../../src/core/runner.js";
 import type { RunnerIO } from "../../src/core/runner.js";
 import { sendEvent } from "../../src/core/client.js";
 import type { CanonicalHookEvent } from "../../src/core/schema.js";
+import { buildEventData } from "../../src/adapters/shared/buildEventData.js";
 
 function fakeIO(input: string) {
   const stdoutWrites: string[] = [];
@@ -36,7 +37,7 @@ describe("runStdioHook", () => {
       project_name: "/repo",
       platform: "claude-code",
       hook_event_name: "PostToolUse",
-      event_data: { hook_event_name: "PostToolUse" },
+      event_data: buildEventData({ tool_name: "Bash" }),
     };
     const translate = vi.fn(() => event);
     const { io, stdoutWrites, exitCodes } = fakeIO(JSON.stringify(raw));
@@ -55,7 +56,7 @@ describe("runStdioHook", () => {
       project_name: "/repo",
       platform: "antigravity",
       hook_event_name: "PostToolUse",
-      event_data: {},
+      event_data: buildEventData(),
     };
     const translate = vi.fn(async () => event);
     const { io, exitCodes } = fakeIO(JSON.stringify({}));
@@ -73,7 +74,7 @@ describe("runStdioHook", () => {
         project_name: "/repo",
         platform: "antigravity",
         hook_event_name: "PreToolUse",
-        event_data: {},
+        event_data: buildEventData(),
       })
     );
     const { io, stdoutWrites } = fakeIO(JSON.stringify({}));

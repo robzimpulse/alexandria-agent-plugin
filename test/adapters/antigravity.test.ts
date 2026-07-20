@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
-  translatePreToolUse,
   translatePostToolUse,
   translatePreInvocation,
   translateStop,
@@ -16,109 +15,93 @@ function loadFixture(name: string): Record<string, any> {
   return JSON.parse(raw);
 }
 
-describe("antigravity translatePreToolUse", () => {
-  it("maps PreToolUse: event_data carries full raw payload", () => {
-    const raw = loadFixture("PreToolUse");
-    const event = translatePreToolUse(raw);
-
-    expect(event).toEqual({
-      session_id: raw.conversationId,
-      project_name: raw.workspacePaths[0],
-      platform: "antigravity",
-      hook_event_name: "PreToolUse",
-      event_data: raw,
-    });
-  });
-
-  it("never throws on a malformed payload (missing toolCall)", () => {
-    const raw = { conversationId: "c1", workspacePaths: ["/tmp"] };
-    const event = translatePreToolUse(raw);
-
-    expect(event.session_id).toBe("c1");
-    expect(event.event_data).toEqual(raw);
-  });
-
-  it("falls back to an empty project_name when workspacePaths is empty", () => {
-    const raw = { conversationId: "c1", workspacePaths: [] };
-    const event = translatePreToolUse(raw);
-
-    expect(event.project_name).toBe("");
-  });
-});
-
 describe("antigravity translatePostToolUse", () => {
-  it("parses transcript.jsonl and enriches event_data with toolName/args/result", async () => {
+  it("parses transcript.jsonl and produces structured EventData", async () => {
     const raw = loadFixture("PostToolUse");
     raw.transcriptPath = path.join(process.cwd(), "test/fixtures/antigravity/transcript.jsonl");
 
     const event = await translatePostToolUse(raw);
 
     expect(event.session_id).toBe(raw.conversationId);
-    expect(event.project_name).toBe(raw.workspacePaths[0]);
     expect(event.platform).toBe("antigravity");
     expect(event.hook_event_name).toBe("PostToolUse");
-    // event_data should be the raw payload merged with transcript fields
-    expect(event.event_data).toHaveProperty("toolName", "run_command");
-    expect(event.event_data).toHaveProperty("args", { CommandLine: "npm test" });
-    expect(event.event_data).toHaveProperty("result", { stdout: "5 passed", exitCode: 0 });
-    expect(event.event_data).toHaveProperty("stepIdx", 19);
+    expect(event.event_data).toEqual({
+      prompt: null,
+      tool_name: "run_command",
+      tool_input: { CommandLine: "npm test" },
+      tool_response: { stdout: "5 passed", exitCode: 0 },
+    });
   });
 
-  it("degrades gracefully when the transcript file doesn't exist, event_data is unchanged raw payload", async () => {
+  it("degrades gracefully when transcript file doesn't exist — all tool fields null", async () => {
     const raw = loadFixture("PostToolUse");
     raw.transcriptPath = "/nonexistent/path/transcript.jsonl";
 
     const event = await translatePostToolUse(raw);
 
-    expect(event.hook_event_name).toBe("PostToolUse");
-    expect(event.event_data).toEqual(raw);
+    expect(event.event_data).toEqual({
+      prompt: null,
+      tool_name: null,
+      tool_input: null,
+      tool_response: null,
+    });
   });
 
-  it("degrades gracefully when no entry in the transcript matches stepIdx, event_data is unchanged raw payload", async () => {
+  it("degrades gracefully when no entry matches stepIdx — all tool fields null", async () => {
     const raw = loadFixture("PostToolUse");
     raw.transcriptPath = path.join(process.cwd(), "test/fixtures/antigravity/transcript.jsonl");
     raw.stepIdx = 999;
 
     const event = await translatePostToolUse(raw);
 
-    expect(event.event_data).toEqual(raw);
+    expect(event.event_data).toEqual({
+      prompt: null,
+      tool_name: null,
+      tool_input: null,
+      tool_response: null,
+    });
   });
 });
 
 describe("antigravity translatePreInvocation", () => {
-  it("maps invocationNum 0 to SessionStart", () => {
+  it("maps invocationNum 0 to SessionStart with all-null event_data", async () => {
     const raw = loadFixture("PreInvocation-SessionStart");
-    const event = translatePreInvocation(raw);
+    const event = await translatePreInvocation(raw);
 
-    expect(event).toEqual({
-      session_id: raw.conversationId,
-      project_name: raw.workspacePaths[0],
-      platform: "antigravity",
-      hook_event_name: "SessionStart",
-      event_data: raw,
+    expect(event.hook_event_name).toBe("SessionStart");
+    expect(event.event_data).toEqual({
+      prompt: null,
+      tool_name: null,
+      tool_input: null,
+      tool_response: null,
     });
   });
 
-  it("maps a non-zero invocationNum to UserPromptSubmit", () => {
+  it("maps non-zero invocationNum to UserPromptSubmit with null prompt", async () => {
     const raw = loadFixture("PreInvocation-UserPromptSubmit");
-    const event = translatePreInvocation(raw);
+    const event = await translatePreInvocation(raw);
 
     expect(event.hook_event_name).toBe("UserPromptSubmit");
-    expect(event.event_data).toEqual(raw);
+    expect(event.event_data).toEqual({
+      prompt: null,  // Antigravity transcript doesn't store user prompts
+      tool_name: null,
+      tool_input: null,
+      tool_response: null,
+    });
   });
 });
 
 describe("antigravity translateStop", () => {
-  it("maps to hook_event_name Stop, event_data carries full raw payload", () => {
+  it("maps to Stop with all-null event_data", () => {
     const raw = loadFixture("Stop");
     const event = translateStop(raw);
 
-    expect(event).toEqual({
-      session_id: raw.conversationId,
-      project_name: raw.workspacePaths[0],
-      platform: "antigravity",
-      hook_event_name: "Stop",
-      event_data: raw,
+    expect(event.hook_event_name).toBe("Stop");
+    expect(event.event_data).toEqual({
+      prompt: null,
+      tool_name: null,
+      tool_input: null,
+      tool_response: null,
     });
   });
 });
