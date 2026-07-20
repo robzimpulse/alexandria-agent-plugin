@@ -109,7 +109,7 @@ function resolveProjectPath(cwd) {
     return cwd;
   }
 }
-function resolveHermesCwd(session_id, cwd) {
+function resolveProjectName(session_id, cwd) {
   if (session_id && (0, import_node_fs.existsSync)(STATE_DB)) {
     try {
       const rows = (0, import_node_child_process.execSync)(
@@ -119,18 +119,16 @@ function resolveHermesCwd(session_id, cwd) {
       if (rows.length >= 2) {
         const gitRoot2 = rows[0];
         const dbCwd = rows[1];
-        if (gitRoot2) return gitRoot2;
-        if (dbCwd) {
-          const r = resolveProjectPath(dbCwd);
-          if (r !== dbCwd) return r;
-        }
+        const root = gitRoot2 ? gitRoot2 : dbCwd ? resolveProjectPath(dbCwd) : "";
+        if (root) return (0, import_node_path.basename)(root);
       }
     } catch {
     }
   }
   const gitRoot = resolveProjectPath(cwd);
-  if (gitRoot !== cwd) return gitRoot;
-  return cwd;
+  if (gitRoot) return (0, import_node_path.basename)(gitRoot);
+  if (cwd) return (0, import_node_path.basename)(cwd);
+  return "General";
 }
 var defaultIO = {
   readStdin: () => new Promise((resolve) => {
@@ -152,7 +150,7 @@ async function runStdioHook(translate, stdout = "{}", io = defaultIO) {
   try {
     const raw = JSON.parse(await io.readStdin());
     const event = await translate(raw);
-    event.cwd = resolveHermesCwd(event.session_id, event.cwd);
+    event.project_name = resolveProjectName(event.session_id, event.project_name);
     await sendEvent(event, loadConfig());
   } catch {
   }
@@ -165,7 +163,7 @@ var import_node_fs2 = require("node:fs");
 function commonMapped(raw) {
   return {
     session_id: raw.conversationId,
-    cwd: raw.workspacePaths?.[0] ?? ""
+    project_name: raw.workspacePaths?.[0] ?? ""
   };
 }
 function translatePreToolUse(raw) {
@@ -174,35 +172,34 @@ function translatePreToolUse(raw) {
     ...commonMapped(payload),
     platform: "antigravity",
     hook_event_name: "PreToolUse",
-    tool_name: payload.toolCall?.name,
-    tool_input: payload.toolCall?.args
+    event_data: raw
   };
 }
 async function translatePostToolUse(raw) {
   const payload = raw;
-  const event = {
-    ...commonMapped(payload),
-    platform: "antigravity",
-    hook_event_name: "PostToolUse"
-  };
+  let eventData = raw;
   try {
     const content = await import_node_fs2.promises.readFile(payload.transcriptPath, "utf8");
     const entry = content.split("\n").filter((line) => line.trim().length > 0).map((line) => JSON.parse(line)).find((line) => line.stepIdx === payload.stepIdx);
     if (entry) {
-      event.tool_name = entry.toolName;
-      event.tool_input = entry.args;
-      event.tool_response = entry.result;
+      eventData = { ...raw, toolName: entry.toolName, args: entry.args, result: entry.result };
     }
   } catch {
   }
-  return event;
+  return {
+    ...commonMapped(payload),
+    platform: "antigravity",
+    hook_event_name: "PostToolUse",
+    event_data: eventData
+  };
 }
 function translatePreInvocation(raw) {
   const payload = raw;
   return {
     ...commonMapped(payload),
     platform: "antigravity",
-    hook_event_name: payload.invocationNum === 0 ? "SessionStart" : "UserPromptSubmit"
+    hook_event_name: payload.invocationNum === 0 ? "SessionStart" : "UserPromptSubmit",
+    event_data: raw
   };
 }
 function translateStop(raw) {
@@ -210,7 +207,8 @@ function translateStop(raw) {
   return {
     ...commonMapped(payload),
     platform: "antigravity",
-    hook_event_name: "Stop"
+    hook_event_name: "Stop",
+    event_data: raw
   };
 }
 

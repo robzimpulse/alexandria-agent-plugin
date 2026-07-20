@@ -109,7 +109,7 @@ function resolveProjectPath(cwd) {
     return cwd;
   }
 }
-function resolveHermesCwd(session_id, cwd) {
+function resolveProjectName(session_id, cwd) {
   if (session_id && (0, import_node_fs.existsSync)(STATE_DB)) {
     try {
       const rows = (0, import_node_child_process.execSync)(
@@ -119,18 +119,16 @@ function resolveHermesCwd(session_id, cwd) {
       if (rows.length >= 2) {
         const gitRoot2 = rows[0];
         const dbCwd = rows[1];
-        if (gitRoot2) return gitRoot2;
-        if (dbCwd) {
-          const r = resolveProjectPath(dbCwd);
-          if (r !== dbCwd) return r;
-        }
+        const root = gitRoot2 ? gitRoot2 : dbCwd ? resolveProjectPath(dbCwd) : "";
+        if (root) return (0, import_node_path.basename)(root);
       }
     } catch {
     }
   }
   const gitRoot = resolveProjectPath(cwd);
-  if (gitRoot !== cwd) return gitRoot;
-  return cwd;
+  if (gitRoot) return (0, import_node_path.basename)(gitRoot);
+  if (cwd) return (0, import_node_path.basename)(cwd);
+  return "General";
 }
 var defaultIO = {
   readStdin: () => new Promise((resolve) => {
@@ -152,7 +150,7 @@ async function runStdioHook(translate2, stdout = "{}", io = defaultIO) {
   try {
     const raw = JSON.parse(await io.readStdin());
     const event = await translate2(raw);
-    event.cwd = resolveHermesCwd(event.session_id, event.cwd);
+    event.project_name = resolveProjectName(event.session_id, event.project_name);
     await sendEvent(event, loadConfig());
   } catch {
   }
@@ -163,18 +161,13 @@ async function runStdioHook(translate2, stdout = "{}", io = defaultIO) {
 // src/adapters/codex/translate.ts
 function translate(raw) {
   const payload = raw;
-  const event = {
+  return {
     session_id: payload.session_id,
-    cwd: payload.cwd,
+    project_name: payload.cwd,
     platform: "codex",
-    hook_event_name: payload.hook_event_name
+    hook_event_name: payload.hook_event_name,
+    event_data: raw
   };
-  if (payload.hook_event_name === "PostToolUse") {
-    event.tool_name = payload.tool_name;
-    event.tool_input = payload.tool_input;
-    event.tool_response = payload.tool_response;
-  }
-  return event;
 }
 
 // src/adapters/codex/cli.ts

@@ -72,45 +72,47 @@ function createHandlers(sendEvent2, cwd) {
     "session.created": (input) => {
       sendEvent2({
         session_id: input.sessionID,
-        cwd,
+        project_name: cwd,
         platform: "opencode",
-        hook_event_name: "SessionStart"
+        hook_event_name: "SessionStart",
+        event_data: input
       });
     },
     "message.updated": (input) => {
       if (input.properties?.info?.role !== "user") return;
       sendEvent2({
         session_id: "",
-        cwd,
+        project_name: cwd,
         platform: "opencode",
-        hook_event_name: "UserPromptSubmit"
+        hook_event_name: "UserPromptSubmit",
+        event_data: input
       });
     },
     "tool.execute.after": (input, output) => {
       sendEvent2({
         session_id: input.sessionID,
-        cwd,
+        project_name: cwd,
         platform: "opencode",
         hook_event_name: "PostToolUse",
-        tool_name: input.tool,
-        tool_input: input.args,
-        tool_response: { output: output.output, metadata: output.metadata }
+        event_data: { input, output }
       });
     },
     "session.idle": (input) => {
       sendEvent2({
         session_id: input.properties.sessionID,
-        cwd,
+        project_name: cwd,
         platform: "opencode",
-        hook_event_name: "SessionEnd"
+        hook_event_name: "SessionEnd",
+        event_data: input
       });
     },
     "session.deleted": (input) => {
       sendEvent2({
         session_id: input.properties.sessionID,
-        cwd,
+        project_name: cwd,
         platform: "opencode",
-        hook_event_name: "SessionEnd"
+        hook_event_name: "SessionEnd",
+        event_data: input
       });
     }
   };
