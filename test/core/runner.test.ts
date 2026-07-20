@@ -33,9 +33,10 @@ describe("runStdioHook", () => {
     const raw = { hook_event_name: "PostToolUse" };
     const event: CanonicalHookEvent = {
       session_id: "sess-1",
-      cwd: "/repo",
+      project_name: "/repo",
       platform: "claude-code",
       hook_event_name: "PostToolUse",
+      event_data: { hook_event_name: "PostToolUse" },
     };
     const translate = vi.fn(() => event);
     const { io, stdoutWrites, exitCodes } = fakeIO(JSON.stringify(raw));
@@ -51,9 +52,10 @@ describe("runStdioHook", () => {
   it("supports an async translate function", async () => {
     const event: CanonicalHookEvent = {
       session_id: "sess-1",
-      cwd: "/repo",
+      project_name: "/repo",
       platform: "antigravity",
       hook_event_name: "PostToolUse",
+      event_data: {},
     };
     const translate = vi.fn(async () => event);
     const { io, exitCodes } = fakeIO(JSON.stringify({}));
@@ -68,9 +70,10 @@ describe("runStdioHook", () => {
     const translate = vi.fn(
       (): CanonicalHookEvent => ({
         session_id: "s",
-        cwd: "/repo",
+        project_name: "/repo",
         platform: "antigravity",
         hook_event_name: "PreToolUse",
+        event_data: {},
       })
     );
     const { io, stdoutWrites } = fakeIO(JSON.stringify({}));

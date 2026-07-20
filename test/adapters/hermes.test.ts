@@ -12,19 +12,16 @@ function loadFixture(name: string): Record<string, any> {
 }
 
 describe("hermes translate", () => {
-  it("maps post_tool_call: tool_name/tool_input pass through, tool_response comes from extra.result", () => {
+  it("maps post_tool_call: event_data carries the full raw payload", () => {
     const raw = loadFixture("post_tool_call");
-
     const event = translate(raw);
 
     expect(event).toEqual({
       session_id: raw.session_id,
-      cwd: raw.cwd,
+      project_name: raw.cwd,
       platform: "hermes",
       hook_event_name: "PostToolUse",
-      tool_name: raw.tool_name,
-      tool_input: raw.tool_input,
-      tool_response: raw.extra.result,
+      event_data: raw,
     });
   });
 
@@ -35,37 +32,17 @@ describe("hermes translate", () => {
     ["post_llm_call", "Stop"],
     ["on_session_end", "SessionEnd"],
   ] as const) {
-    it(`maps ${nativeName} → ${canonicalName}: tool_name/tool_input/tool_response all absent despite null in the raw payload`, () => {
+    it(`maps ${nativeName} → ${canonicalName}: event_data carries full payload`, () => {
       const raw = loadFixture(nativeName);
-
       const event = translate(raw);
 
       expect(event).toEqual({
         session_id: raw.session_id,
-        cwd: raw.cwd,
+        project_name: raw.cwd,
         platform: "hermes",
         hook_event_name: canonicalName,
+        event_data: raw,
       });
-      expect(event.tool_name).toBeUndefined();
-      expect(event.tool_input).toBeUndefined();
-      expect(event.tool_response).toBeUndefined();
     });
   }
-
-  it("degrades gracefully when extra.result is missing on post_tool_call, rather than throwing", () => {
-    const raw = {
-      hook_event_name: "post_tool_call",
-      tool_name: "terminal",
-      tool_input: { command: "npm test" },
-      session_id: "sess-abc123",
-      cwd: "/home/user/project",
-      extra: {},
-    };
-
-    const event = translate(raw);
-
-    expect(event.tool_name).toBe("terminal");
-    expect(event.tool_input).toEqual({ command: "npm test" });
-    expect(event.tool_response).toBeUndefined();
-  });
 });

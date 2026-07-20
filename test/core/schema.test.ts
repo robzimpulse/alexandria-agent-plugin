@@ -3,30 +3,28 @@ import { describe, it, expect } from "vitest";
 import type { CanonicalHookEvent } from "../../src/core/schema.js";
 
 describe("CanonicalHookEvent", () => {
-  it("allows a full tool event with all fields set", () => {
+  it("allows a full tool event with event_data", () => {
     const event: CanonicalHookEvent = {
       session_id: "sess-1",
-      cwd: "/repo",
+      project_name: "my-project",
       platform: "claude-code",
       hook_event_name: "PostToolUse",
-      tool_name: "Bash",
-      tool_input: { command: "ls" },
-      tool_response: { output: "file.txt" },
+      event_data: { tool_name: "Bash", tool_input: { command: "ls" }, tool_response: { output: "file.txt" } },
     };
 
     expect(event.platform).toBe("claude-code");
+    expect(event.event_data).toBeDefined();
   });
 
-  it("allows a lifecycle event with the optional tool_* fields omitted", () => {
+  it("allows a lifecycle event with minimal fields", () => {
     const event: CanonicalHookEvent = {
       session_id: "sess-1",
-      cwd: "/repo",
+      project_name: "my-project",
       platform: "claude-code",
       hook_event_name: "SessionStart",
+      event_data: {},
     };
 
-    expect(event.tool_name).toBeUndefined();
-    expect(event.tool_input).toBeUndefined();
-    expect(event.tool_response).toBeUndefined();
+    expect(event.project_name).toBe("my-project");
   });
 });

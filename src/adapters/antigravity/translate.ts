@@ -29,10 +29,10 @@ type StopPayload = CommonFields & {
   fullyIdle: boolean;
 };
 
-function commonMapped(raw: CommonFields): Pick<CanonicalHookEvent, "session_id" | "cwd"> {
+function commonMapped(raw: CommonFields): Pick<CanonicalHookEvent, "session_id" | "project_name"> {
   return {
     session_id: raw.conversationId,
-    cwd: raw.workspacePaths?.[0] ?? "",
+    project_name: raw.workspacePaths?.[0] ?? "",
   };
 }
 
@@ -42,18 +42,13 @@ export function translatePreToolUse(raw: unknown): CanonicalHookEvent {
     ...commonMapped(payload),
     platform: "antigravity",
     hook_event_name: "PreToolUse",
-    tool_name: payload.toolCall?.name,
-    tool_input: payload.toolCall?.args,
+    event_data: raw,
   };
 }
 
 export async function translatePostToolUse(raw: unknown): Promise<CanonicalHookEvent> {
   const payload = raw as PostToolUsePayload;
-  const event: CanonicalHookEvent = {
-    ...commonMapped(payload),
-    platform: "antigravity",
-    hook_event_name: "PostToolUse",
-  };
+  let eventData: unknown = raw;
 
   try {
     const content = await fs.readFile(payload.transcriptPath, "utf8");
@@ -64,15 +59,19 @@ export async function translatePostToolUse(raw: unknown): Promise<CanonicalHookE
       .find((line) => line.stepIdx === payload.stepIdx);
 
     if (entry) {
-      event.tool_name = entry.toolName;
-      event.tool_input = entry.args;
-      event.tool_response = entry.result;
+      // Merge transcript-enriched fields into event_data
+      eventData = { ...raw, toolName: entry.toolName, args: entry.args, result: entry.result };
     }
   } catch {
     // Degrade gracefully: never throw on a missing/malformed/unmatched transcript.
   }
 
-  return event;
+  return {
+    ...commonMapped(payload),
+    platform: "antigravity",
+    hook_event_name: "PostToolUse",
+    event_data: eventData,
+  };
 }
 
 export function translatePreInvocation(raw: unknown): CanonicalHookEvent {
@@ -81,6 +80,7 @@ export function translatePreInvocation(raw: unknown): CanonicalHookEvent {
     ...commonMapped(payload),
     platform: "antigravity",
     hook_event_name: payload.invocationNum === 0 ? "SessionStart" : "UserPromptSubmit",
+    event_data: raw,
   };
 }
 
@@ -90,5 +90,6 @@ export function translateStop(raw: unknown): CanonicalHookEvent {
     ...commonMapped(payload),
     platform: "antigravity",
     hook_event_name: "Stop",
+    event_data: raw,
   };
 }
