@@ -1,6 +1,6 @@
 {
   "session_id": "sess-abc123",
-  "project_name": "/Users/dev/project",
+  "cwd": "/Users/dev/project",
   "hook_event_name": "SessionEnd",
   "transcript_path": "/Users/dev/.claude/projects/project/sess-abc123.jsonl",
   "permission_mode": "default"

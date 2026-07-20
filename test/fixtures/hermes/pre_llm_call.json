@@ -3,6 +3,6 @@
   "tool_name": null,
   "tool_input": null,
   "session_id": "sess-abc123",
-  "project_name": "/home/user/project",
+  "cwd": "/home/user/project",
   "extra": { "user_message": "run the tests" }
 }
