@@ -67,6 +67,23 @@ function logOutcome(
       line.error = err instanceof Error ? err.message : String(err);
     }
     fs.appendFileSync(path.join(logDir, "plugin.log"), JSON.stringify(line) + "\n");
+
+    // Log the full structured event_data to a platform-specific log for verification.
+    const logsDir = path.join(logDir, "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const platformLog = path.join(logsDir, `${event.platform}.log`);
+    const dataLine: Record<string, unknown> = {
+      timestamp: new Date().toISOString(),
+      session_id: event.session_id,
+      project_name: event.project_name,
+      platform: event.platform,
+      hook_event_name: event.hook_event_name,
+      event_data: event.event_data,
+    };
+    if (err !== undefined) {
+      dataLine.error = err instanceof Error ? err.message : String(err);
+    }
+    fs.appendFileSync(platformLog, JSON.stringify(dataLine) + "\n");
   } catch {
     // Logging must never throw.
   }

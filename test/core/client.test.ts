@@ -11,12 +11,15 @@ let logDir: string;
 
 const event: CanonicalHookEvent = {
   session_id: "sess-1",
-  cwd: "/repo",
+  project_name: "/repo",
   platform: "claude-code",
   hook_event_name: "PostToolUse",
-  tool_name: "Bash",
-  tool_input: { command: "ls" },
-  tool_response: { output: "file.txt" },
+  event_data: {
+    prompt: null,
+    tool_name: "Bash",
+    tool_input: { command: "ls" },
+    tool_response: { output: "file.txt" },
+  },
 };
 
 beforeEach(() => {

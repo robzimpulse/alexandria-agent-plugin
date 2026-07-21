@@ -1,4 +1,5 @@
 import type { CanonicalHookEvent } from "../../core/schema.js";
+import { buildEventData } from "../shared/buildEventData.js";
 
 export interface EventHandlers {
   "session.created": (input: { sessionID: string; projectID: string }) => void;
@@ -19,7 +20,7 @@ export function createHandlers(
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "SessionStart",
-        event_data: input,
+        event_data: buildEventData(), // signal-only, all null
       });
     },
     "message.updated": (input) => {
@@ -29,7 +30,9 @@ export function createHandlers(
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "UserPromptSubmit",
-        event_data: input,
+        event_data: buildEventData({
+          prompt: input.properties.info.content ?? null,
+        }),
       });
     },
     "tool.execute.after": (input, output) => {
@@ -38,7 +41,11 @@ export function createHandlers(
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "PostToolUse",
-        event_data: { input, output },
+        event_data: buildEventData({
+          tool_name: input.tool,
+          tool_input: input.args,
+          tool_response: output.output,
+        }),
       });
     },
     "session.idle": (input) => {
@@ -47,7 +54,7 @@ export function createHandlers(
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "SessionEnd",
-        event_data: input,
+        event_data: buildEventData(), // signal-only, all null
       });
     },
     "session.deleted": (input) => {
@@ -56,7 +63,7 @@ export function createHandlers(
         project_name: cwd,
         platform: "opencode",
         hook_event_name: "SessionEnd",
-        event_data: input,
+        event_data: buildEventData(), // signal-only, all null
       });
     },
   };

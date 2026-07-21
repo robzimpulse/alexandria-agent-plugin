@@ -69,6 +69,21 @@ function logOutcome(event, status, logDir, err) {
       line.error = err instanceof Error ? err.message : String(err);
     }
     fs.appendFileSync(path.join(logDir, "plugin.log"), JSON.stringify(line) + "\n");
+    const logsDir = path.join(logDir, "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const platformLog = path.join(logsDir, `${event.platform}.log`);
+    const dataLine = {
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      session_id: event.session_id,
+      project_name: event.project_name,
+      platform: event.platform,
+      hook_event_name: event.hook_event_name,
+      event_data: event.event_data
+    };
+    if (err !== void 0) {
+      dataLine.error = err instanceof Error ? err.message : String(err);
+    }
+    fs.appendFileSync(platformLog, JSON.stringify(dataLine) + "\n");
   } catch {
   }
 }
@@ -158,15 +173,35 @@ async function runStdioHook(translate2, stdout = "{}", io = defaultIO) {
   io.exit(0);
 }
 
+// src/adapters/shared/buildEventData.ts
+function buildEventData(overrides = {}) {
+  return {
+    prompt: null,
+    tool_name: null,
+    tool_input: null,
+    tool_response: null,
+    ...overrides
+  };
+}
+
 // src/adapters/codex/translate.ts
 function translate(raw) {
   const payload = raw;
+  const eventDataFields = {};
+  if (payload.hook_event_name === "UserPromptSubmit" && payload.prompt !== void 0) {
+    eventDataFields.prompt = payload.prompt;
+  }
+  if (payload.hook_event_name === "PostToolUse") {
+    eventDataFields.tool_name = payload.tool_name ?? null;
+    eventDataFields.tool_input = payload.tool_input ?? null;
+    eventDataFields.tool_response = payload.tool_response ?? null;
+  }
   return {
     session_id: payload.session_id,
     project_name: payload.cwd,
     platform: "codex",
     hook_event_name: payload.hook_event_name,
-    event_data: raw
+    event_data: buildEventData(eventDataFields)
   };
 }
 

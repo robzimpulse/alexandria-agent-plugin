@@ -70,6 +70,21 @@ function logOutcome(event, status, logDir, err) {
       line.error = err instanceof Error ? err.message : String(err);
     }
     fs.appendFileSync(path.join(logDir, "plugin.log"), JSON.stringify(line) + "\n");
+    const logsDir = path.join(logDir, "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const platformLog = path.join(logsDir, `${event.platform}.log`);
+    const dataLine = {
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      session_id: event.session_id,
+      project_name: event.project_name,
+      platform: event.platform,
+      hook_event_name: event.hook_event_name,
+      event_data: event.event_data
+    };
+    if (err !== void 0) {
+      dataLine.error = err instanceof Error ? err.message : String(err);
+    }
+    fs.appendFileSync(platformLog, JSON.stringify(dataLine) + "\n");
   } catch {
   }
 }
@@ -159,6 +174,17 @@ async function runStdioHook(translate2, stdout = "{}", io = defaultIO) {
   io.exit(0);
 }
 
+// src/adapters/shared/buildEventData.ts
+function buildEventData(overrides = {}) {
+  return {
+    prompt: null,
+    tool_name: null,
+    tool_input: null,
+    tool_response: null,
+    ...overrides
+  };
+}
+
 // src/adapters/hermes/translate.ts
 var NATIVE_TO_CANONICAL = {
   on_session_start: "SessionStart",
@@ -175,8 +201,24 @@ function translate(raw) {
     project_name: payload.cwd,
     platform: "hermes",
     hook_event_name: NATIVE_TO_CANONICAL[payload.hook_event_name] ?? payload.hook_event_name,
-    event_data: raw
+    event_data: buildEventData(
+      hookNameToEventData(payload.hook_event_name, payload)
+    )
   };
+}
+function hookNameToEventData(nativeHook, payload) {
+  switch (nativeHook) {
+    case "pre_llm_call":
+      return { prompt: payload.extra?.user_message ?? null };
+    case "post_tool_call":
+      return {
+        tool_name: payload.tool_name,
+        tool_input: payload.tool_input,
+        tool_response: payload.extra?.result ?? null
+      };
+    default:
+      return {};
+  }
 }
 
 // src/adapters/hermes/cli.ts
