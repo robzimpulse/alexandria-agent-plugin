@@ -1,0 +1,4 @@
+{"role":"user","message":{"content":"refactor the auth handler"}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Refactoring auth handler."}]}}
+{"role":"user","message":{"content":"add rate limiting"}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Adding rate limiting middleware."}]}}

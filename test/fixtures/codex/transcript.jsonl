@@ -1,0 +1,4 @@
+{"role":"user","content":"explain the architecture"}
+{"role":"assistant","content":[{"type":"text","text":"The system uses..."}]}
+{"role":"user","content":"add tests for the new endpoint"}
+{"role":"assistant","content":[{"type":"text","text":"Adding tests..."}]}

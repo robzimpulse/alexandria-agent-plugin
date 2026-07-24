@@ -1,0 +1,4 @@
+{"type":"user","message":{"content":"what is the purpose of this file?"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Let me read the file first."}]}}
+{"type":"user","message":{"content":"can you add error handling?"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"I'll add error handling."}]}}
