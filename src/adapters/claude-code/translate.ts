@@ -1,5 +1,6 @@
 import type { CanonicalHookEvent } from "../../core/schema.js";
 import { buildEventData } from "../shared/buildEventData.js";
+import { readLatestUserMessage } from "../../core/transcript-reader.js";
 
 type ClaudeCodeRawPayload = {
   session_id: string;
@@ -9,14 +10,22 @@ type ClaudeCodeRawPayload = {
   tool_name?: string;
   tool_input?: unknown;
   tool_response?: unknown;
+  transcript_path?: string;
 };
 
-export function translate(raw: unknown): CanonicalHookEvent {
+export async function translate(raw: unknown): Promise<CanonicalHookEvent> {
   const payload = raw as ClaudeCodeRawPayload;
 
   const eventDataFields: Record<string, unknown> = {};
-  if (payload.hook_event_name === "UserPromptSubmit" && payload.prompt !== undefined) {
-    eventDataFields.prompt = payload.prompt;
+  if (payload.hook_event_name === "UserPromptSubmit") {
+    if (payload.prompt !== undefined) {
+      eventDataFields.prompt = payload.prompt;
+    } else if (payload.transcript_path) {
+      eventDataFields.prompt = await readLatestUserMessage(
+        payload.transcript_path,
+        "claude-code"
+      );
+    }
   }
   if (payload.hook_event_name === "PostToolUse") {
     eventDataFields.tool_name = payload.tool_name ?? null;
