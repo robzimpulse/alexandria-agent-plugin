@@ -184,12 +184,97 @@ function buildEventData(overrides = {}) {
   };
 }
 
+// src/core/transcript-reader.ts
+var fs4 = __toESM(require("node:fs"), 1);
+
+// src/adapters/antigravity/transcript.ts
+var import_node_fs2 = require("node:fs");
+function extractUserPrompt(entry) {
+  if (!entry.content) return null;
+  const match = entry.content.match(
+    /<USER_REQUEST>\s*([\s\S]*?)\s*<\/USER_REQUEST>/
+  );
+  return match ? match[1].trim() : null;
+}
+async function readLatestUserPrompt(transcriptPath) {
+  try {
+    const content = await import_node_fs2.promises.readFile(transcriptPath, "utf8");
+    const lines = content.split("\n").filter((l) => l.trim().length > 0);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const entry = JSON.parse(lines[i]);
+      if ((entry.source === "USER_EXPLICIT" || entry.source === "USER") && entry.type === "USER_INPUT") {
+        const prompt = extractUserPrompt(entry);
+        if (prompt) return prompt;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// src/core/transcript-reader.ts
+function detectPlatform(line) {
+  try {
+    const entry = JSON.parse(line);
+    if (entry.source) return "antigravity";
+    if (entry.type === "user" || entry.type === "assistant") return "claude-code";
+    if (entry.role === "user" || entry.role === "assistant") return "codex";
+    return null;
+  } catch {
+    return null;
+  }
+}
+function extractUserText(entry) {
+  if (entry.type === "user" && entry.message && typeof entry.message.content === "string") {
+    return entry.message.content;
+  }
+  if (entry.role === "user" && typeof entry.content === "string") {
+    return entry.content;
+  }
+  if (entry.role === "user" && entry.message && typeof entry.message.content === "string") {
+    return entry.message.content;
+  }
+  return null;
+}
+async function readLatestUserMessage(transcriptPath, platform) {
+  try {
+    const content = await fs4.promises.readFile(transcriptPath, "utf8");
+    const lines = content.split("\n").filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return null;
+    const resolvedPlatform = platform ?? detectPlatform(lines[0]);
+    if (!resolvedPlatform) return null;
+    if (resolvedPlatform === "antigravity") {
+      return readLatestUserPrompt(transcriptPath);
+    }
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(lines[i]);
+        const text = extractUserText(entry);
+        if (text) return text;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // src/adapters/codex/translate.ts
-function translate(raw) {
+async function translate(raw) {
   const payload = raw;
   const eventDataFields = {};
-  if (payload.hook_event_name === "UserPromptSubmit" && payload.prompt !== void 0) {
-    eventDataFields.prompt = payload.prompt;
+  if (payload.hook_event_name === "UserPromptSubmit") {
+    if (payload.prompt !== void 0) {
+      eventDataFields.prompt = payload.prompt;
+    } else if (payload.transcript_path) {
+      eventDataFields.prompt = await readLatestUserMessage(
+        payload.transcript_path,
+        "codex"
+      );
+    }
   }
   if (payload.hook_event_name === "PostToolUse") {
     eventDataFields.tool_name = payload.tool_name ?? null;

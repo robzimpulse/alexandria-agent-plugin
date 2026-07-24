@@ -17,6 +17,14 @@ describe("detectPlatform", () => {
     expect(detectPlatform('{"role":"user","content":"hi"}')).toBe("codex");
   });
 
+  it("detects codex from payload.role field", () => {
+    expect(detectPlatform('{"type":"response_item","payload":{"role":"user"}}')).toBe("codex");
+  });
+
+  it("detects codex from codex-specific types", () => {
+    expect(detectPlatform('{"type":"event_msg","payload":{}}')).toBe("codex");
+  });
+
   it("detects antigravity from source field", () => {
     expect(detectPlatform('{"source":"USER_EXPLICIT","type":"USER_INPUT"}')).toBe("antigravity");
   });

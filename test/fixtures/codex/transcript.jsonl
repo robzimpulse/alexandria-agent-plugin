@@ -1,4 +1,5 @@
-{"role":"user","content":"explain the architecture"}
-{"role":"assistant","content":[{"type":"text","text":"The system uses..."}]}
-{"role":"user","content":"add tests for the new endpoint"}
-{"role":"assistant","content":[{"type":"text","text":"Adding tests..."}]}
+{"timestamp":"2026-07-21T14:50:24.592Z","type":"session_meta","payload":{"session_id":"test-sess-1","id":"test-sess-1"}}
+{"timestamp":"2026-07-21T14:50:24.596Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1"}}
+{"timestamp":"2026-07-21T14:50:24.627Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"explain the architecture"}]}}
+{"timestamp":"2026-07-21T14:50:24.627Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"The system uses..."}]}}
+{"timestamp":"2026-07-21T14:50:25.174Z","type":"event_msg","payload":{"type":"user_message","message":"add tests for the new endpoint"}}

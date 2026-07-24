@@ -7,6 +7,12 @@ interface TranscriptEntry {
   type?: string;
   role?: string;
   source?: string;
+  payload?: {
+    type?: string;
+    role?: string;
+    content?: string | Array<{ type: string; text: string }>;
+    message?: string;
+  };
   message?: { content?: string | Array<{ type: string; text: string }> };
   content?: string | Array<{ type: string; text: string }>;
 }
@@ -16,11 +22,29 @@ export function detectPlatform(line: string): JsonlPlatform | null {
     const entry = JSON.parse(line) as TranscriptEntry;
     if (entry.source) return 'antigravity';
     if (entry.type === 'user' || entry.type === 'assistant') return 'claude-code';
-    if (entry.role === 'user' || entry.role === 'assistant') return 'codex';  // cursor also uses 'role'
+    if (entry.role === 'user' || entry.role === 'assistant') return 'codex';
+    // Codex wraps messages in payload envelope
+    if (entry.payload?.role === 'user' || entry.payload?.role === 'assistant') return 'codex';
+    const codexLineTypes: string[] = ['response_item', 'event_msg', 'session_meta', 'world_state', 'turn_context'];
+    if (codexLineTypes.includes(entry.type ?? '')) return 'codex';
     return null;
   } catch {
     return null;
   }
+}
+
+function extractFromContentArray(
+  content: string | Array<{ type: string; text: string }>
+): string | null {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    const texts = content
+      .filter(c => c.type === 'input_text' || c.type === 'text')
+      .map(c => c.text)
+      .filter(Boolean);
+    return texts.length > 0 ? texts.join('\n') : null;
+  }
+  return null;
 }
 
 function extractUserText(entry: TranscriptEntry): string | null {
@@ -28,7 +52,15 @@ function extractUserText(entry: TranscriptEntry): string | null {
   if (entry.type === 'user' && entry.message && typeof entry.message.content === 'string') {
     return entry.message.content;
   }
-  // Codex: {role:"user", content:"text"}
+  // Codex event_msg user_message: {type:"event_msg", payload:{type:"user_message", message:"text"}}
+  if (entry.type === 'event_msg' && entry.payload?.type === 'user_message' && typeof entry.payload.message === 'string') {
+    return entry.payload.message;
+  }
+  // Codex response_item user: {type:"response_item", payload:{role:"user", content:[...]}}
+  if (entry.payload?.role === 'user' && entry.payload?.content) {
+    return extractFromContentArray(entry.payload.content);
+  }
+  // Codex flat: {role:"user", content:"text"}
   if (entry.role === 'user' && typeof entry.content === 'string') {
     return entry.content;
   }
