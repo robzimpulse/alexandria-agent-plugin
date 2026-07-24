@@ -1,0 +1,10 @@
+{
+  "conversation_id": "sess-abc123",
+  "workspace_roots": ["/Users/dev/project"],
+  "hook_event_name": "PostToolUse",
+  "tool_name": "write_file",
+  "file_path": "src/auth/handler.go",
+  "edits": [{"range": {"start": 10, "end": 20}, "text": "func newHandler() {}"}],
+  "result_json": "{\"success\": true}",
+  "transcript_path": "/Users/dev/.cursor/projects/project/agent-transcripts/sess-abc123/sess-abc123.jsonl"
+}

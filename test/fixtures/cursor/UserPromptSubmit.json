@@ -1,0 +1,7 @@
+{
+  "conversation_id": "sess-abc123",
+  "workspace_roots": ["/Users/dev/project"],
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "add rate limiting to the auth handler",
+  "transcript_path": "/Users/dev/.cursor/projects/project/agent-transcripts/sess-abc123/sess-abc123.jsonl"
+}

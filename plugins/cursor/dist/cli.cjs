@@ -1,0 +1,299 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+
+// src/core/client.ts
+var fs = __toESM(require("node:fs"), 1);
+var os = __toESM(require("node:os"), 1);
+var path = __toESM(require("node:path"), 1);
+async function sendEvent(event, config, deps = {}) {
+  const fetchFn = deps.fetchFn ?? fetch;
+  const logDir = deps.logDir ?? path.join(os.homedir(), ".alexandria");
+  const timeoutMs = deps.timeoutMs ?? 3e3;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const headers = { "Content-Type": "application/json" };
+    if (config.apiKey) {
+      headers.Authorization = `Bearer ${config.apiKey}`;
+    }
+    let response;
+    try {
+      response = await fetchFn(`${config.url}/api/hooks`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(event),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!response.ok) {
+      throw new Error(`POST /api/hooks failed with status ${response.status}`);
+    }
+    logOutcome(event, "SUCCESS", logDir);
+  } catch (err) {
+    logOutcome(event, "FAIL", logDir, err);
+  }
+}
+function logOutcome(event, status, logDir, err) {
+  try {
+    fs.mkdirSync(logDir, { recursive: true });
+    const line = {
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      platform: event.platform,
+      hook_event_name: event.hook_event_name,
+      status
+    };
+    if (err !== void 0) {
+      line.error = err instanceof Error ? err.message : String(err);
+    }
+    fs.appendFileSync(path.join(logDir, "plugin.log"), JSON.stringify(line) + "\n");
+    const logsDir = path.join(logDir, "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const platformLog = path.join(logsDir, `${event.platform}.log`);
+    const dataLine = {
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      session_id: event.session_id,
+      project_name: event.project_name,
+      platform: event.platform,
+      hook_event_name: event.hook_event_name,
+      event_data: event.event_data
+    };
+    if (err !== void 0) {
+      dataLine.error = err instanceof Error ? err.message : String(err);
+    }
+    fs.appendFileSync(platformLog, JSON.stringify(dataLine) + "\n");
+  } catch {
+  }
+}
+
+// src/core/config.ts
+var fs2 = __toESM(require("node:fs"), 1);
+var os2 = __toESM(require("node:os"), 1);
+var path2 = __toESM(require("node:path"), 1);
+function loadConfig(configDir = path2.join(os2.homedir(), ".alexandria"), env = process.env) {
+  let fileConfig = {};
+  try {
+    const raw = fs2.readFileSync(path2.join(configDir, "config.json"), "utf8");
+    fileConfig = JSON.parse(raw);
+  } catch {
+    fileConfig = {};
+  }
+  const url = env.ALEXANDRIA_URL ?? fileConfig.url ?? "";
+  const apiKey = env.ALEXANDRIA_API_KEY ?? fileConfig.apiKey;
+  return apiKey ? { url, apiKey } : { url };
+}
+
+// src/core/runner.ts
+var import_node_child_process = require("node:child_process");
+var import_node_os = require("node:os");
+var import_node_path = require("node:path");
+var import_node_fs = require("node:fs");
+var HERMES_HOME = (0, import_node_path.normalize)((0, import_node_path.join)((0, import_node_os.homedir)(), ".hermes"));
+var STATE_DB = (0, import_node_path.join)(HERMES_HOME, "state.db");
+function resolveProjectPath(cwd) {
+  try {
+    return (0, import_node_child_process.execSync)("git rev-parse --show-toplevel", {
+      cwd,
+      encoding: "utf8",
+      timeout: 3e3,
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+  } catch {
+    return cwd;
+  }
+}
+function resolveProjectName(session_id, cwd) {
+  if (session_id && (0, import_node_fs.existsSync)(STATE_DB)) {
+    try {
+      const rows = (0, import_node_child_process.execSync)(
+        `sqlite3 "${STATE_DB}" "SELECT git_repo_root, cwd FROM sessions WHERE id='${session_id.replace(/'/g, "''")}'"`,
+        { encoding: "utf8", timeout: 3e3, stdio: ["ignore", "pipe", "ignore"] }
+      ).trim().split("|");
+      if (rows.length >= 2) {
+        const gitRoot2 = rows[0];
+        const dbCwd = rows[1];
+        const root = gitRoot2 ? gitRoot2 : dbCwd ? resolveProjectPath(dbCwd) : "";
+        if (root) return (0, import_node_path.basename)(root);
+      }
+    } catch {
+    }
+  }
+  const gitRoot = resolveProjectPath(cwd);
+  if (gitRoot) return (0, import_node_path.basename)(gitRoot);
+  if (cwd) return (0, import_node_path.basename)(cwd);
+  return "General";
+}
+var defaultIO = {
+  readStdin: () => new Promise((resolve) => {
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => resolve(data));
+  }),
+  writeStdout: (text) => {
+    process.stdout.write(text);
+  },
+  exit: (code) => {
+    process.exit(code);
+  }
+};
+async function runStdioHook(translate2, stdout = "{}", io = defaultIO) {
+  try {
+    const raw = JSON.parse(await io.readStdin());
+    const event = await translate2(raw);
+    event.project_name = resolveProjectName(event.session_id, event.project_name);
+    await sendEvent(event, loadConfig());
+  } catch {
+  }
+  io.writeStdout(stdout);
+  io.exit(0);
+}
+
+// src/adapters/shared/buildEventData.ts
+function buildEventData(overrides = {}) {
+  return {
+    prompt: null,
+    tool_name: null,
+    tool_input: null,
+    tool_response: null,
+    ...overrides
+  };
+}
+
+// src/core/transcript-reader.ts
+var fs4 = __toESM(require("node:fs"), 1);
+
+// src/adapters/antigravity/transcript.ts
+var import_node_fs2 = require("node:fs");
+function extractUserPrompt(entry) {
+  if (!entry.content) return null;
+  const match = entry.content.match(
+    /<USER_REQUEST>\s*([\s\S]*?)\s*<\/USER_REQUEST>/
+  );
+  return match ? match[1].trim() : null;
+}
+async function readLatestUserPrompt(transcriptPath) {
+  try {
+    const content = await import_node_fs2.promises.readFile(transcriptPath, "utf8");
+    const lines = content.split("\n").filter((l) => l.trim().length > 0);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const entry = JSON.parse(lines[i]);
+      if ((entry.source === "USER_EXPLICIT" || entry.source === "USER") && entry.type === "USER_INPUT") {
+        const prompt = extractUserPrompt(entry);
+        if (prompt) return prompt;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// src/core/transcript-reader.ts
+function detectPlatform(line) {
+  try {
+    const entry = JSON.parse(line);
+    if (entry.source) return "antigravity";
+    if (entry.type === "user" || entry.type === "assistant") return "claude-code";
+    if (entry.role === "user" || entry.role === "assistant") return "codex";
+    return null;
+  } catch {
+    return null;
+  }
+}
+function extractUserText(entry) {
+  if (entry.type === "user" && entry.message && typeof entry.message.content === "string") {
+    return entry.message.content;
+  }
+  if (entry.role === "user" && typeof entry.content === "string") {
+    return entry.content;
+  }
+  if (entry.role === "user" && entry.message && typeof entry.message.content === "string") {
+    return entry.message.content;
+  }
+  return null;
+}
+async function readLatestUserMessage(transcriptPath, platform) {
+  try {
+    const content = await fs4.promises.readFile(transcriptPath, "utf8");
+    const lines = content.split("\n").filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return null;
+    const resolvedPlatform = platform ?? detectPlatform(lines[0]);
+    if (!resolvedPlatform) return null;
+    if (resolvedPlatform === "antigravity") {
+      return readLatestUserPrompt(transcriptPath);
+    }
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(lines[i]);
+        const text = extractUserText(entry);
+        if (text) return text;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// src/adapters/cursor/translate.ts
+async function translate(raw) {
+  const payload = raw;
+  const cwd = payload.workspace_roots?.[0] ?? process.cwd();
+  const sessionId = payload.conversation_id;
+  const eventDataFields = {};
+  if (payload.hook_event_name === "UserPromptSubmit") {
+    if (payload.prompt !== void 0) {
+      eventDataFields.prompt = payload.prompt;
+    } else if (payload.transcript_path) {
+      eventDataFields.prompt = await readLatestUserMessage(
+        payload.transcript_path,
+        "cursor"
+      );
+    }
+  }
+  if (payload.hook_event_name === "PostToolUse") {
+    eventDataFields.tool_name = payload.tool_name ?? null;
+    eventDataFields.tool_input = {
+      ...payload.file_path ? { filePath: payload.file_path } : {},
+      ...payload.edits ? { edits: payload.edits } : {}
+    };
+    eventDataFields.tool_response = payload.result_json ?? null;
+  }
+  return {
+    session_id: sessionId,
+    project_name: cwd,
+    platform: "cursor",
+    hook_event_name: payload.hook_event_name,
+    event_data: buildEventData(eventDataFields)
+  };
+}
+
+// src/adapters/cursor/cli.ts
+runStdioHook(translate);

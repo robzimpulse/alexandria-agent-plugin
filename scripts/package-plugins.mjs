@@ -26,6 +26,12 @@ const platforms = [
     hooksJsonDest: "hooks.json",
   },
   { name: "opencode", format: "esm", entryFile: "plugin.ts", outfileBasename: "plugin.js", shebang: false },
+  {
+    name: "cursor",
+    pluginJsonDest: "plugin.json",
+    hooksJsonSrc: "manifest/hooks.json",
+    hooksJsonDest: "hooks.json",
+  },
 ];
 
 for (const platform of platforms) {
