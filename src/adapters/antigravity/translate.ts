@@ -19,6 +19,11 @@ type PreInvocationPayload = CommonFields & {
   initialNumSteps: number;
 };
 
+type PreToolUsePayload = CommonFields & {
+  toolCall: { name: string; args: Record<string, unknown> };
+  stepIdx: number;
+};
+
 type StopPayload = CommonFields & {
   executionNum: number;
   terminationReason: string;
@@ -33,7 +38,20 @@ function commonMapped(raw: CommonFields): Pick<CanonicalHookEvent, "session_id" 
   };
 }
 
-// translatePreToolUse removed — PreToolUse is not in the canonical event set.
+export async function translatePreToolUse(raw: unknown): Promise<CanonicalHookEvent> {
+  const payload = raw as PreToolUsePayload;
+
+  return {
+    ...commonMapped(payload),
+    platform: "antigravity",
+    hook_event_name: "PreToolUse",
+    event_data: buildEventData({
+      tool_name: payload.toolCall?.name ?? null,
+      tool_input: payload.toolCall?.args ?? null,
+      tool_response: null,
+    }),
+  };
+}
 
 export async function translatePostToolUse(raw: unknown): Promise<CanonicalHookEvent> {
   const payload = raw as PostToolUsePayload;
