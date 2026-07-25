@@ -220,14 +220,31 @@ function detectPlatform(line) {
     if (entry.source) return "antigravity";
     if (entry.type === "user" || entry.type === "assistant") return "claude-code";
     if (entry.role === "user" || entry.role === "assistant") return "codex";
+    if (entry.payload?.role === "user" || entry.payload?.role === "assistant") return "codex";
+    const codexLineTypes = ["response_item", "event_msg", "session_meta", "world_state", "turn_context"];
+    if (codexLineTypes.includes(entry.type ?? "")) return "codex";
     return null;
   } catch {
     return null;
   }
 }
+function extractFromContentArray(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const texts = content.filter((c) => c.type === "input_text" || c.type === "text").map((c) => c.text).filter(Boolean);
+    return texts.length > 0 ? texts.join("\n") : null;
+  }
+  return null;
+}
 function extractUserText(entry) {
   if (entry.type === "user" && entry.message && typeof entry.message.content === "string") {
     return entry.message.content;
+  }
+  if (entry.type === "event_msg" && entry.payload?.type === "user_message" && typeof entry.payload.message === "string") {
+    return entry.payload.message;
+  }
+  if (entry.payload?.role === "user" && entry.payload?.content) {
+    return extractFromContentArray(entry.payload.content);
   }
   if (entry.role === "user" && typeof entry.content === "string") {
     return entry.content;
