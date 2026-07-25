@@ -1,5 +1,6 @@
 // src/core/runner.ts
 import type { CanonicalHookEvent } from "./schema.js";
+import { ContextStore } from "./context-store.js";
 import { sendEvent } from "./client.js";
 import { loadConfig } from "./config.js";
 import { execSync } from "node:child_process";
@@ -59,6 +60,10 @@ export type RunnerIO = {
   exit: (code: number) => void;
 };
 
+export type RunStdioHookOptions = {
+  contextStore?: ContextStore;
+};
+
 const defaultIO: RunnerIO = {
   readStdin: () =>
     new Promise((resolve) => {
@@ -80,13 +85,35 @@ const defaultIO: RunnerIO = {
 export async function runStdioHook(
   translate: (raw: unknown) => CanonicalHookEvent | Promise<CanonicalHookEvent>,
   stdout: string = "{}",
-  io: RunnerIO = defaultIO
+  io: RunnerIO = defaultIO,
+  options?: RunStdioHookOptions,
 ): Promise<void> {
   try {
     const raw = JSON.parse(await io.readStdin());
     const event = await translate(raw);
     event.project_name = resolveProjectName(event.session_id, event.project_name);
     await sendEvent(event, loadConfig());
+
+    // Fetch incremental context for UserPromptSubmit and PostToolUse
+    if (
+      (event.hook_event_name === "UserPromptSubmit" || event.hook_event_name === "PostToolUse") &&
+      options?.contextStore
+    ) {
+      const contextText = await options.contextStore.refresh(
+        loadConfig().url,
+        loadConfig().apiKey,
+        event.session_id,
+        [event.project_name],
+        event.platform,
+      );
+      if (contextText) {
+        io.writeStdout(JSON.stringify({
+          hookSpecificOutput: { additionalContext: contextText },
+        }));
+        io.exit(0);
+        return;
+      }
+    }
   } catch {
     // Fail-silent: a bad/malformed translate() must never surface as a
     // nonzero exit, missing stdout, or stderr noise to the host platform.
