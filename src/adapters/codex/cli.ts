@@ -5,7 +5,9 @@
 // definition, so any future edit to it re-triggers review. For scripted or
 // automated installs where an interactive `/hooks` session isn't available,
 // pass `--dangerously-bypass-hook-trust` instead of expecting the prompt.
+import { ContextStore } from "../../core/context-store.js";
 import { runStdioHook } from "../../core/runner.js";
 import { translate } from "./translate.js";
 
-runStdioHook(translate);
+const contextStore = new ContextStore();
+runStdioHook(translate, "{}", undefined, { contextStore });

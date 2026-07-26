@@ -1,3 +1,4 @@
+import { ContextStore } from "../../core/context-store.js";
 import { runStdioHook } from "../../core/runner.js";
 import { loadConfig } from "../../core/config.js";
 import {
@@ -66,17 +67,19 @@ async function handlePre(): Promise<void> {
 
 const mode = process.argv[2];
 
+const contextStore = new ContextStore();
+
 switch (mode) {
   case "pre":
     handlePre();
     break;
   case "post":
-    runStdioHook(translatePostToolUse, "{}");
+    runStdioHook(translatePostToolUse, "{}", undefined, { contextStore });
     break;
   case "preinvocation":
-    runStdioHook(translatePreInvocation, "{}");
+    runStdioHook(translatePreInvocation, "{}", undefined, { contextStore });
     break;
   case "stop":
-    runStdioHook(translateStop, '{"decision":""}');
+    runStdioHook(translateStop, '{"decision":""}', undefined, { contextStore });
     break;
 }

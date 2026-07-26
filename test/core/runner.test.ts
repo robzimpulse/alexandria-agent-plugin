@@ -13,6 +13,7 @@ import type { RunnerIO } from "../../src/core/runner.js";
 import { sendEvent } from "../../src/core/client.js";
 import type { CanonicalHookEvent } from "../../src/core/schema.js";
 import { buildEventData } from "../../src/adapters/shared/buildEventData.js";
+import { ContextStore } from "../../src/core/context-store.js";
 
 function fakeIO(input: string) {
   const stdoutWrites: string[] = [];
@@ -103,6 +104,77 @@ describe("runStdioHook", () => {
 
     await runStdioHook(translate, "{}", io);
 
+    expect(stdoutWrites).toEqual(["{}"]);
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it("returns hookSpecificOutput.additionalContext when contextStore provides text", async () => {
+    const raw = { hook_event_name: "UserPromptSubmit" };
+    const event: CanonicalHookEvent = {
+      session_id: "sess-1",
+      project_name: "/repo",
+      platform: "claude-code",
+      hook_event_name: "UserPromptSubmit",
+      event_data: buildEventData({ prompt: "hello" }),
+    };
+    const translate = vi.fn(() => event);
+    const { io, stdoutWrites, exitCodes } = fakeIO(JSON.stringify(raw));
+
+    const mockStore = {
+      refresh: vi.fn(async () => "<alexandria-context>mock</alexandria-context>"),
+      clearAll: vi.fn(),
+      clearSession: vi.fn(),
+    } as unknown as ContextStore;
+
+    await runStdioHook(translate, "{}", io, { contextStore: mockStore });
+
+    expect(mockStore.refresh).toHaveBeenCalled();
+    expect(stdoutWrites.length).toBe(1);
+    const parsed = JSON.parse(stdoutWrites[0]);
+    expect(parsed.hookSpecificOutput.additionalContext).toBe("<alexandria-context>mock</alexandria-context>");
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it("falls back to default stdout when contextStore returns null", async () => {
+    const raw = { hook_event_name: "UserPromptSubmit" };
+    const event: CanonicalHookEvent = {
+      session_id: "sess-1",
+      project_name: "/repo",
+      platform: "claude-code",
+      hook_event_name: "UserPromptSubmit",
+      event_data: buildEventData({ prompt: "hello" }),
+    };
+    const translate = vi.fn(() => event);
+    const { io, stdoutWrites, exitCodes } = fakeIO(JSON.stringify(raw));
+
+    const mockStore = {
+      refresh: vi.fn(async () => null),
+      clearAll: vi.fn(),
+      clearSession: vi.fn(),
+    } as unknown as ContextStore;
+
+    await runStdioHook(translate, "{}", io, { contextStore: mockStore });
+
+    expect(mockStore.refresh).toHaveBeenCalled();
+    expect(stdoutWrites).toEqual(["{}"]);
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it("still works without options (backward compat)", async () => {
+    const raw = { hook_event_name: "PostToolUse" };
+    const event: CanonicalHookEvent = {
+      session_id: "sess-1",
+      project_name: "/repo",
+      platform: "claude-code",
+      hook_event_name: "PostToolUse",
+      event_data: buildEventData({ tool_name: "Bash" }),
+    };
+    const translate = vi.fn(() => event);
+    const { io, stdoutWrites, exitCodes } = fakeIO(JSON.stringify(raw));
+
+    await runStdioHook(translate, "{}", io);
+
+    expect(translate).toHaveBeenCalled();
     expect(stdoutWrites).toEqual(["{}"]);
     expect(exitCodes).toEqual([0]);
   });
