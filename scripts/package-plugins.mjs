@@ -1,9 +1,10 @@
 import { build } from "esbuild";
-import { mkdirSync, copyFileSync, chmodSync } from "node:fs";
+import { mkdirSync, copyFileSync, chmodSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const pkgVersion = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf-8")).version;
 
 const platforms = [
   {
@@ -56,9 +57,12 @@ for (const platform of platforms) {
   }
 
   if (platform.pluginJsonDest) {
+    const src = join(srcDir, "manifest/plugin.json");
     const dest = join(pluginDir, platform.pluginJsonDest);
     mkdirSync(dirname(dest), { recursive: true });
-    copyFileSync(join(srcDir, "manifest/plugin.json"), dest);
+    const manifest = JSON.parse(readFileSync(src, "utf-8"));
+    manifest.version = pkgVersion;
+    writeFileSync(dest, JSON.stringify(manifest, null, 2) + "\n");
   }
 
   if (platform.hooksJsonDest) {
