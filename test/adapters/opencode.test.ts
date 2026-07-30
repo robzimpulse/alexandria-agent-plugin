@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { CanonicalHookEvent } from "../../src/core/schema.js";
 import { createHandlers } from "../../src/adapters/opencode/translate.js";
+import { convertJsonSchema, discoverTools, clearToolsCache } from "../../src/adapters/opencode/plugin.js";
 
 const mockSend = vi.fn();
 
@@ -81,5 +82,52 @@ describe("opencode plugin handlers", () => {
     expect(event.event_data).toEqual({
       prompt: null, tool_name: null, tool_input: null, tool_response: null,
     });
+  });
+});
+
+describe("convertJsonSchema", () => {
+  it("converts string", () => {
+    expect(convertJsonSchema({ type: "string" }).__type).toBe("string");
+  });
+  it("converts number", () => {
+    expect(convertJsonSchema({ type: "number" }).__type).toBe("number");
+  });
+  it("converts boolean", () => {
+    expect(convertJsonSchema({ type: "boolean" }).__type).toBe("boolean");
+  });
+  it("converts object with properties", () => {
+    const r = convertJsonSchema({ type: "object", properties: { name: { type: "string" }, count: { type: "integer" } } }) as any;
+    expect(r.__type).toBe("object");
+    expect(r.__properties.name.__type).toBe("string");
+    expect(r.__properties.count.__type).toBe("number");
+  });
+  it("converts array", () => {
+    const r = convertJsonSchema({ type: "array", items: { type: "string" } }) as any;
+    expect(r.__type).toBe("array");
+    expect(r.__items.__type).toBe("string");
+  });
+  it("defaults to string for null/undefined/unknown", () => {
+    expect(convertJsonSchema(null).__type).toBe("string");
+    expect(convertJsonSchema(undefined).__type).toBe("string");
+    expect(convertJsonSchema({ type: "weird" }).__type).toBe("string");
+  });
+});
+
+describe("discoverTools", () => {
+  beforeEach(() => { clearToolsCache(); });
+
+  it("fetches and returns tools from the server", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ result: { tools: [{ name: "search", description: "Search" }] } }),
+    });
+    const tools = await discoverTools("https://alexandria.example.com", "key", mockFetch as any);
+    expect(tools).toHaveLength(1);
+    expect(tools[0].name).toBe("search");
+  });
+
+  it("returns empty array on fetch failure", async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new Error("fail"));
+    const tools = await discoverTools("https://alexandria.example.com", undefined, mockFetch as any);
+    expect(tools).toEqual([]);
   });
 });
