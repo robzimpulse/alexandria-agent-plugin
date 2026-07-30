@@ -8,6 +8,33 @@ import { homedir } from "node:os";
 import { basename, join, normalize } from "node:path";
 import { existsSync } from "node:fs";
 
+/**
+ * Each platform has its own hook output protocol for injecting context.
+ * This returns the correct format for (platform, event) so the host agent
+ * actually receives the text.
+ */
+export function formatHookOutput(
+  platform: string,
+  hookEventName: string,
+  contextText: string,
+): Record<string, unknown> {
+  switch (platform) {
+    case "hermes":
+      // pre_llm_call (→ UserPromptSubmit) expects {"context": "..."}
+      return { context: contextText };
+    case "antigravity":
+      if (hookEventName === "UserPromptSubmit") {
+        // PreInvocation injects ephemeral messages via injectSteps
+        return { injectSteps: [{ ephemeralMessage: contextText }] };
+      }
+      // PostToolUse on antigravity has no context injection mechanism
+      return {};
+    default:
+      // claude-code, codex, cursor all support systemMessage
+      return { systemMessage: contextText };
+  }
+}
+
 const HERMES_HOME = normalize(join(homedir(), ".hermes"));
 const STATE_DB = join(HERMES_HOME, "state.db");
 
@@ -107,9 +134,9 @@ export async function runStdioHook(
         event.platform,
       );
       if (contextText) {
-        io.writeStdout(JSON.stringify({
-          systemMessage: contextText,
-        }));
+        io.writeStdout(JSON.stringify(
+          formatHookOutput(event.platform, event.hook_event_name, contextText),
+        ));
         io.exit(0);
         return;
       }

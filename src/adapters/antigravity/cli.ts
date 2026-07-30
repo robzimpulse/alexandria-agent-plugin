@@ -56,8 +56,11 @@ async function handlePre(): Promise<void> {
 
   const output: Record<string, unknown> = {};
   if (additionalContext) {
-    output.hookSpecificOutput = { hookEventName: "PreToolUse" };
-    output.systemMessage = additionalContext;
+    // PreToolUse on antigravity supports reason as a message to the agent
+    output.decision = "allow";
+    output.reason = additionalContext;
+  } else {
+    output.decision = "allow";
   }
   process.stdout.write(JSON.stringify(output));
   process.exit(0);
