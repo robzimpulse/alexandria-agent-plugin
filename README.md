@@ -10,7 +10,10 @@ Plugins that capture coding-agent hook events (tool calls, session lifecycle) fr
 | Codex | Implemented, packaged in `plugins/codex/` |
 | Antigravity | Implemented, packaged in `plugins/antigravity/` |
 | Hermes | Implemented, packaged in `plugins/hermes/` |
-| Opencode | Not yet implemented |
+| Cursor | Implemented, packaged in `plugins/cursor/` |
+| Opencode | Tool registration implemented |
+
+All platforms except OpenCode expose Alexandria server tools via a bundled MCP relay server. OpenCode uses native tool registration. See each platform's plugin directory for installation.
 
 ## Structure
 
