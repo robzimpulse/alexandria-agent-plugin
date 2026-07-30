@@ -8,35 +8,7 @@ type PluginInput = {
   worktree: string;
 };
 
-// --- Schema conversion ---
-
-export type ConvertedSchema = {
-  __type: string;
-  __properties?: Record<string, ConvertedSchema>;
-  __items?: ConvertedSchema;
-};
-
-export function convertJsonSchema(schema: any): ConvertedSchema {
-  if (!schema || !schema.type) return { __type: "string" };
-  switch (schema.type) {
-    case "string": return { __type: "string" };
-    case "number":
-    case "integer": return { __type: "number" };
-    case "boolean": return { __type: "boolean" };
-    case "object": {
-      const r: ConvertedSchema = { __type: "object" };
-      if (schema.properties) {
-        r.__properties = {};
-        for (const [k, v] of Object.entries(schema.properties)) {
-          r.__properties[k] = convertJsonSchema(v);
-        }
-      }
-      return r;
-    }
-    case "array": return { __type: "array", __items: schema.items ? convertJsonSchema(schema.items) : { __type: "string" } };
-    default: return { __type: "string" };
-  }
-}
+// --- Schema conversion (for native tool registration) ---
 
 export type DiscoveredTool = { name: string; description: string; inputSchema: any };
 

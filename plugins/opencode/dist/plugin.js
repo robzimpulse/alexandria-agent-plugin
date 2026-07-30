@@ -154,32 +154,6 @@ function createHandlers(sendEvent2, cwd) {
 }
 
 // src/adapters/opencode/plugin.ts
-function convertJsonSchema(schema) {
-  if (!schema || !schema.type) return { __type: "string" };
-  switch (schema.type) {
-    case "string":
-      return { __type: "string" };
-    case "number":
-    case "integer":
-      return { __type: "number" };
-    case "boolean":
-      return { __type: "boolean" };
-    case "object": {
-      const r = { __type: "object" };
-      if (schema.properties) {
-        r.__properties = {};
-        for (const [k, v] of Object.entries(schema.properties)) {
-          r.__properties[k] = convertJsonSchema(v);
-        }
-      }
-      return r;
-    }
-    case "array":
-      return { __type: "array", __items: schema.items ? convertJsonSchema(schema.items) : { __type: "string" } };
-    default:
-      return { __type: "string" };
-  }
-}
 var toolsCache = null;
 function clearToolsCache() {
   toolsCache = null;
@@ -199,15 +173,16 @@ async function discoverTools(url, apiKey, fetchFn = globalThis.fetch) {
   }
 }
 function jsonSchemaToArgs(schema) {
-  const conv = convertJsonSchema(schema ?? {});
-  if (conv.__type !== "object" || !conv.__properties) return {};
+  if (!schema?.properties) return {};
   const args = {};
-  for (const [key, val] of Object.entries(conv.__properties)) {
-    switch (val.__type) {
+  for (const [key, val] of Object.entries(schema.properties)) {
+    const prop = val;
+    switch (prop.type) {
       case "string":
         args[key] = { type: "string" };
         break;
       case "number":
+      case "integer":
         args[key] = { type: "number" };
         break;
       case "boolean":
@@ -281,6 +256,5 @@ var AlexandriaCapture = async (ctx) => {
 export {
   AlexandriaCapture,
   clearToolsCache,
-  convertJsonSchema,
   discoverTools
 };

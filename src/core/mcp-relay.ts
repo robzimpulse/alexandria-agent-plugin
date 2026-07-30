@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Config } from "./config.js";
 
+const RELAY_VERSION = "0.2.1";
 const LOG_FILE = path.join(os.homedir(), ".alexandria", "plugin.log");
 
 function logError(msg: string, err?: unknown): void {
@@ -34,11 +35,17 @@ export async function processJsonRpcMessage(
   if (req.method === "initialize") {
     return JSON.stringify({
       jsonrpc: "2.0", id: req.id,
-      result: { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} } },
+      result: {
+        protocolVersion: PROTOCOL_VERSION,
+        capabilities: { tools: {} },
+        serverInfo: { name: "alexandria-mcp-relay", version: RELAY_VERSION },
+      },
     });
   }
 
   if (req.method === "notifications/initialized") return null;
+
+  if (req.method === "ping") return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: {} });
 
   if (req.method === "tools/list") {
     if (toolsCacheRef.current) {

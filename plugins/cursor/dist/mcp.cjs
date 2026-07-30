@@ -26,6 +26,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var fs = __toESM(require("node:fs"), 1);
 var os = __toESM(require("node:os"), 1);
 var path = __toESM(require("node:path"), 1);
+var RELAY_VERSION = "0.2.1";
 var LOG_FILE = path.join(os.homedir(), ".alexandria", "plugin.log");
 function logError(msg, err) {
   try {
@@ -48,10 +49,15 @@ async function processJsonRpcMessage(request, serverUrl, apiKey, toolsCacheRef, 
     return JSON.stringify({
       jsonrpc: "2.0",
       id: req.id,
-      result: { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} } }
+      result: {
+        protocolVersion: PROTOCOL_VERSION,
+        capabilities: { tools: {} },
+        serverInfo: { name: "alexandria-mcp-relay", version: RELAY_VERSION }
+      }
     });
   }
   if (req.method === "notifications/initialized") return null;
+  if (req.method === "ping") return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: {} });
   if (req.method === "tools/list") {
     if (toolsCacheRef.current) {
       return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: toolsCacheRef.current });
