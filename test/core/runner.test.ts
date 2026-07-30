@@ -132,7 +132,8 @@ describe("runStdioHook", () => {
     expect(mockStore.refresh).toHaveBeenCalled();
     expect(stdoutWrites.length).toBe(1);
     const parsed = JSON.parse(stdoutWrites[0]);
-    expect(parsed.systemMessage).toBe("<alexandria-context>mock</alexandria-context>");
+    expect(parsed.hookSpecificOutput.additionalContext).toBe("<alexandria-context>mock</alexandria-context>");
+    expect(parsed.hookSpecificOutput.hookEventName).toBe("UserPromptSubmit");
     expect(exitCodes).toEqual([0]);
   });
 
@@ -215,19 +216,19 @@ describe("runStdioHook", () => {
   });
 
   describe("formatHookOutput", () => {
-    it("returns systemMessage for claude-code", () => {
+    it("returns hookSpecificOutput for claude-code", () => {
       const result = formatHookOutput("claude-code", "UserPromptSubmit", "test");
-      expect(result).toEqual({ systemMessage: "test" });
+      expect(result).toEqual({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: "test" } });
     });
 
-    it("returns systemMessage for codex", () => {
+    it("returns hookSpecificOutput for codex", () => {
       const result = formatHookOutput("codex", "UserPromptSubmit", "test");
-      expect(result).toEqual({ systemMessage: "test" });
+      expect(result).toEqual({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: "test" } });
     });
 
-    it("returns systemMessage for cursor", () => {
+    it("returns hookSpecificOutput for cursor", () => {
       const result = formatHookOutput("cursor", "PostToolUse", "test");
-      expect(result).toEqual({ systemMessage: "test" });
+      expect(result).toEqual({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: "test" } });
     });
 
     it("returns context for hermes", () => {

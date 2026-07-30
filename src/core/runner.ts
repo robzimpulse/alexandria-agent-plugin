@@ -12,6 +12,12 @@ import { existsSync } from "node:fs";
  * Each platform has its own hook output protocol for injecting context.
  * This returns the correct format for (platform, event) so the host agent
  * actually receives the text.
+ *
+ * Verified against:
+ *   Claude Code:   https://code.claude.com/docs/en/hooks#add-context-for-claude
+ *   Codex:         https://learn.chatgpt.com/docs/hooks
+ *   Hermes:        https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks
+ *   Antigravity:   https://antigravity.google/docs/hooks
  */
 export function formatHookOutput(
   platform: string,
@@ -20,7 +26,7 @@ export function formatHookOutput(
 ): Record<string, unknown> {
   switch (platform) {
     case "hermes":
-      // pre_llm_call (→ UserPromptSubmit) expects {"context": "..."}
+      // pre_llm_call expects {"context": "..."} — injected into user message
       return { context: contextText };
     case "antigravity":
       if (hookEventName === "UserPromptSubmit") {
@@ -30,8 +36,16 @@ export function formatHookOutput(
       // PostToolUse on antigravity has no context injection mechanism
       return {};
     default:
-      // claude-code, codex, cursor all support systemMessage
-      return { systemMessage: contextText };
+      // claude-code, codex, cursor:
+      //   hookSpecificOutput.additionalContext wraps text as a system
+      //   reminder injected at the event position in the conversation.
+      //   hookEventName is required inside hookSpecificOutput.
+      return {
+        hookSpecificOutput: {
+          hookEventName,
+          additionalContext: contextText,
+        },
+      };
   }
 }
 

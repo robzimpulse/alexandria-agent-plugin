@@ -268,7 +268,12 @@ function formatHookOutput(platform, hookEventName, contextText) {
       }
       return {};
     default:
-      return { systemMessage: contextText };
+      return {
+        hookSpecificOutput: {
+          hookEventName,
+          additionalContext: contextText
+        }
+      };
   }
 }
 var HERMES_HOME = (0, import_node_path.normalize)((0, import_node_path.join)((0, import_node_os.homedir)(), ".hermes"));
