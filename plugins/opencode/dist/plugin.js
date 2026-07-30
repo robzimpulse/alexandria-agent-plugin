@@ -154,13 +154,81 @@ function createHandlers(sendEvent2, cwd) {
 }
 
 // src/adapters/opencode/plugin.ts
+var toolsCache = null;
+function clearToolsCache() {
+  toolsCache = null;
+}
+async function discoverTools(url, apiKey, fetchFn = globalThis.fetch) {
+  try {
+    const resp = await fetchFn(`${url}/api/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...apiKey ? { Authorization: `Bearer ${apiKey}` } : {} },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 1 }),
+      signal: AbortSignal.timeout(5e3)
+    });
+    const data = await resp.json();
+    return data?.result?.tools ?? [];
+  } catch {
+    return [];
+  }
+}
+function jsonSchemaToArgs(schema) {
+  if (!schema?.properties) return {};
+  const args = {};
+  for (const [key, val] of Object.entries(schema.properties)) {
+    const prop = val;
+    switch (prop.type) {
+      case "string":
+        args[key] = { type: "string" };
+        break;
+      case "number":
+      case "integer":
+        args[key] = { type: "number" };
+        break;
+      case "boolean":
+        args[key] = { type: "boolean" };
+        break;
+      case "array":
+        args[key] = { type: "array", items: { type: "string" } };
+        break;
+      default:
+        args[key] = { type: "string" };
+        break;
+    }
+  }
+  return args;
+}
 var AlexandriaCapture = async (ctx) => {
   const cwd = ctx.worktree || ctx.directory;
   const config = loadConfig();
-  const handlers = createHandlers(
-    (event) => sendEvent(event, config),
-    cwd
-  );
+  const handlers = createHandlers((event) => sendEvent(event, config), cwd);
+  if (!toolsCache) {
+    toolsCache = await discoverTools(config.url, config.apiKey);
+  }
+  const toolRegistrations = {};
+  for (const t of toolsCache) {
+    toolRegistrations[t.name] = {
+      description: t.description ?? "",
+      args: jsonSchemaToArgs(t.inputSchema),
+      async execute(args) {
+        try {
+          const resp = await fetch(`${config.url}/api/mcp`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}
+            },
+            body: JSON.stringify({ jsonrpc: "2.0", method: "tools/call", params: { name: t.name, arguments: args }, id: 1 }),
+            signal: AbortSignal.timeout(3e4)
+          });
+          const data = await resp.json();
+          return data?.result?.content?.[0]?.text ?? JSON.stringify(data?.result ?? {});
+        } catch {
+          return "Error: failed to call Alexandria server tool";
+        }
+      }
+    };
+  }
   return {
     "event": async (input) => {
       const e = input.event;
@@ -181,9 +249,12 @@ var AlexandriaCapture = async (ctx) => {
     },
     "tool.execute.after": async (input, output) => {
       await handlers["tool.execute.after"](input, output);
-    }
+    },
+    tool: toolRegistrations
   };
 };
 export {
-  AlexandriaCapture
+  AlexandriaCapture,
+  clearToolsCache,
+  discoverTools
 };

@@ -1,0 +1,8 @@
+{
+  "alexandria": {
+    "command": "node",
+    "args": [
+      "/ABSOLUTE/PATH/dist/mcp.cjs"
+    ]
+  }
+}

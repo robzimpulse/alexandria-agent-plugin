@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { CanonicalHookEvent } from "../../src/core/schema.js";
 import { createHandlers } from "../../src/adapters/opencode/translate.js";
+import { discoverTools, clearToolsCache } from "../../src/adapters/opencode/plugin.js";
 
 const mockSend = vi.fn();
 
@@ -81,5 +82,24 @@ describe("opencode plugin handlers", () => {
     expect(event.event_data).toEqual({
       prompt: null, tool_name: null, tool_input: null, tool_response: null,
     });
+  });
+});
+
+describe("discoverTools", () => {
+  beforeEach(() => { clearToolsCache(); });
+
+  it("fetches and returns tools from the server", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ result: { tools: [{ name: "search", description: "Search" }] } }),
+    });
+    const tools = await discoverTools("https://alexandria.example.com", "key", mockFetch as any);
+    expect(tools).toHaveLength(1);
+    expect(tools[0].name).toBe("search");
+  });
+
+  it("returns empty array on fetch failure", async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new Error("fail"));
+    const tools = await discoverTools("https://alexandria.example.com", undefined, mockFetch as any);
+    expect(tools).toEqual([]);
   });
 });
