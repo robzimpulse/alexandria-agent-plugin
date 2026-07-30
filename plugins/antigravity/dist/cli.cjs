@@ -325,7 +325,7 @@ async function runStdioHook(translate, stdout = "{}", io = defaultIO, options) {
       );
       if (contextText) {
         io.writeStdout(JSON.stringify({
-          hookSpecificOutput: { additionalContext: contextText }
+          systemMessage: contextText
         }));
         io.exit(0);
         return;
@@ -509,10 +509,8 @@ async function handlePre() {
   }
   const output = {};
   if (additionalContext) {
-    output.hookSpecificOutput = {
-      hookEventName: "PreToolUse",
-      additionalContext
-    };
+    output.hookSpecificOutput = { hookEventName: "PreToolUse" };
+    output.systemMessage = additionalContext;
   }
   process.stdout.write(JSON.stringify(output));
   process.exit(0);

@@ -131,7 +131,7 @@ describe("runStdioHook", () => {
     expect(mockStore.refresh).toHaveBeenCalled();
     expect(stdoutWrites.length).toBe(1);
     const parsed = JSON.parse(stdoutWrites[0]);
-    expect(parsed.hookSpecificOutput.additionalContext).toBe("<alexandria-context>mock</alexandria-context>");
+    expect(parsed.systemMessage).toBe("<alexandria-context>mock</alexandria-context>");
     expect(exitCodes).toEqual([0]);
   });
 

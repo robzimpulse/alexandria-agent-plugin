@@ -108,7 +108,7 @@ export async function runStdioHook(
       );
       if (contextText) {
         io.writeStdout(JSON.stringify({
-          hookSpecificOutput: { additionalContext: contextText },
+          systemMessage: contextText,
         }));
         io.exit(0);
         return;

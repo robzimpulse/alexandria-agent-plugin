@@ -56,10 +56,8 @@ async function handlePre(): Promise<void> {
 
   const output: Record<string, unknown> = {};
   if (additionalContext) {
-    output.hookSpecificOutput = {
-      hookEventName: "PreToolUse",
-      additionalContext,
-    };
+    output.hookSpecificOutput = { hookEventName: "PreToolUse" };
+    output.systemMessage = additionalContext;
   }
   process.stdout.write(JSON.stringify(output));
   process.exit(0);

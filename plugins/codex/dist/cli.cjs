@@ -325,7 +325,7 @@ async function runStdioHook(translate2, stdout = "{}", io = defaultIO, options) 
       );
       if (contextText) {
         io.writeStdout(JSON.stringify({
-          hookSpecificOutput: { additionalContext: contextText }
+          systemMessage: contextText
         }));
         io.exit(0);
         return;
