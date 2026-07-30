@@ -114,12 +114,9 @@ export function runMcpRelay(
       }
       const nl = buffer.indexOf("\n");
       if (nl === -1) break;
-      const line = buffer.slice(0, nl).trim();
+      const garbage = buffer.slice(0, nl);
       buffer = buffer.slice(nl + 1);
-      if (!line) continue;
-      processJsonRpcMessage(safeParse(line), serverUrl, config.apiKey, toolsCacheRef, fetchFn)
-        .then((r) => { if (r) writeFrame(r); })
-        .catch((e) => logError("processing", e));
+      if (garbage.trim()) logError("ignoring non-framed data", garbage.trim());
     }
   }
 

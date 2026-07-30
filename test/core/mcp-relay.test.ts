@@ -1,6 +1,7 @@
 // test/core/mcp-relay.test.ts
+import { EventEmitter } from "node:events";
 import { describe, it, expect, vi } from "vitest";
-import { processJsonRpcMessage } from "../../src/core/mcp-relay.js";
+import { processJsonRpcMessage, runMcpRelay } from "../../src/core/mcp-relay.js";
 
 describe("processJsonRpcMessage", () => {
   const serverUrl = "https://alexandria.example.com/api/mcp";
@@ -86,5 +87,39 @@ describe("processJsonRpcMessage — server forwarding", () => {
     const mockFail = vi.fn(() => { throw new Error("should not call"); });
     const r2 = await processJsonRpcMessage({ jsonrpc: "2.0" as const, method: "tools/list", id: 7 }, "url", undefined, cache, mockFail as any);
     expect(JSON.parse(r2!).result.tools[0].name).toBe("search");
+  });
+});
+
+describe("runMcpRelay", () => {
+  it("responds to a Content-Length framed initialize request", async () => {
+    const stdin = new EventEmitter() as NodeJS.ReadStream;
+    (stdin as any).setEncoding = vi.fn();
+    const stdout = new EventEmitter() as NodeJS.WriteStream;
+    const written: string[] = [];
+    stdout.write = vi.fn((chunk: string) => { written.push(chunk); return true; }) as any;
+
+    runMcpRelay({ url: "https://example.com" }, { stdin, stdout });
+
+    const request = JSON.stringify({
+      jsonrpc: "2.0",
+      method: "initialize",
+      id: 42,
+      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: {} },
+    });
+    const frame = `Content-Length: ${Buffer.byteLength(request, "utf8")}\r\n\r\n${request}`;
+    stdin.emit("data", frame);
+
+    // flush pending microtasks (writeFrame is called via .then)
+    await vi.waitFor(() => {
+      expect(written.length).toBeGreaterThanOrEqual(1);
+    });
+
+    const headerMatch = written[0].match(/Content-Length: (\d+)\r\n\r\n/);
+    expect(headerMatch).toBeTruthy();
+    const headerSize = headerMatch![0].length;
+    const body = written[0].slice(headerSize, headerSize + parseInt(headerMatch![1], 10));
+    const parsed = JSON.parse(body);
+    expect(parsed.id).toBe(42);
+    expect(parsed.result.protocolVersion).toBe("2025-03-26");
   });
 });
