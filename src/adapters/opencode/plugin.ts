@@ -61,14 +61,23 @@ export async function discoverTools(
   } catch { return []; }
 }
 
+/**
+ * Convert a JSON Schema object properties map to the format expected by
+ * OpenCode's tool() args. Reads schema.properties directly without an
+ * intermediate conversion — JSON Schema "type" keys are what the OpenCode
+ * host runtime consumes natively.
+ * ponytail: if @opencode-ai/plugin tool.schema.*() builder helpers become
+ * available as project deps, swap to tool.schema.string() etc.
+ */
 function jsonSchemaToArgs(schema: any): Record<string, any> {
-  const conv = convertJsonSchema(schema ?? {});
-  if (conv.__type !== "object" || !conv.__properties) return {};
+  if (!schema?.properties) return {};
   const args: Record<string, any> = {};
-  for (const [key, val] of Object.entries(conv.__properties)) {
-    switch (val.__type) {
+  for (const [key, val] of Object.entries(schema.properties)) {
+    const prop = val as any;
+    switch (prop.type) {
       case "string": args[key] = { type: "string" }; break;
-      case "number": args[key] = { type: "number" }; break;
+      case "number":
+      case "integer": args[key] = { type: "number" }; break;
       case "boolean": args[key] = { type: "boolean" }; break;
       case "array": args[key] = { type: "array", items: { type: "string" } }; break;
       default: args[key] = { type: "string" }; break;
@@ -88,7 +97,7 @@ export const AlexandriaCapture = async (ctx: PluginInput) => {
     toolsCache = await discoverTools(config.url, config.apiKey);
   }
 
-  const toolRegistrations: Record<string, any> = {};
+  const toolRegistrations: Record<string, { description: string; args: any; execute: (args: any) => Promise<string> }> = {};
   for (const t of toolsCache) {
     toolRegistrations[t.name] = {
       description: t.description ?? "",
