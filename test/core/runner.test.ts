@@ -10,6 +10,7 @@ vi.mock("../../src/core/config.js", () => ({
 
 import { runStdioHook } from "../../src/core/runner.js";
 import type { RunnerIO } from "../../src/core/runner.js";
+import { formatHookOutput } from "../../src/core/runner.js";
 import { sendEvent } from "../../src/core/client.js";
 import type { CanonicalHookEvent } from "../../src/core/schema.js";
 import { buildEventData } from "../../src/adapters/shared/buildEventData.js";
@@ -108,7 +109,7 @@ describe("runStdioHook", () => {
     expect(exitCodes).toEqual([0]);
   });
 
-  it("returns hookSpecificOutput.additionalContext when contextStore provides text", async () => {
+  it("returns hookSpecificOutput.additionalContext when contextStore provides text (claude-code)", async () => {
     const raw = { hook_event_name: "UserPromptSubmit" };
     const event: CanonicalHookEvent = {
       session_id: "sess-1",
@@ -132,7 +133,118 @@ describe("runStdioHook", () => {
     expect(stdoutWrites.length).toBe(1);
     const parsed = JSON.parse(stdoutWrites[0]);
     expect(parsed.hookSpecificOutput.additionalContext).toBe("<alexandria-context>mock</alexandria-context>");
+    expect(parsed.hookSpecificOutput.hookEventName).toBe("UserPromptSubmit");
     expect(exitCodes).toEqual([0]);
+  });
+
+  it("uses context field for hermes platform", async () => {
+    const raw = { hook_event_name: "UserPromptSubmit" };
+    const event: CanonicalHookEvent = {
+      session_id: "sess-2",
+      project_name: "/repo",
+      platform: "hermes",
+      hook_event_name: "UserPromptSubmit",
+      event_data: buildEventData({ prompt: "hello" }),
+    };
+    const translate = vi.fn(() => event);
+    const { io, stdoutWrites, exitCodes } = fakeIO(JSON.stringify(raw));
+
+    const mockStore = {
+      refresh: vi.fn(async () => "<alexandria-context>mock</alexandria-context>"),
+      clearAll: vi.fn(),
+      clearSession: vi.fn(),
+    } as unknown as ContextStore;
+
+    await runStdioHook(translate, "{}", io, { contextStore: mockStore });
+
+    expect(stdoutWrites.length).toBe(1);
+    const parsed = JSON.parse(stdoutWrites[0]);
+    expect(parsed.context).toBe("<alexandria-context>mock</alexandria-context>");
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it("uses injectSteps for antigravity UserPromptSubmit", async () => {
+    const raw = { hook_event_name: "UserPromptSubmit" };
+    const event: CanonicalHookEvent = {
+      session_id: "sess-3",
+      project_name: "/repo",
+      platform: "antigravity",
+      hook_event_name: "UserPromptSubmit",
+      event_data: buildEventData({ prompt: "hello" }),
+    };
+    const translate = vi.fn(() => event);
+    const { io, stdoutWrites, exitCodes } = fakeIO(JSON.stringify(raw));
+
+    const mockStore = {
+      refresh: vi.fn(async () => "<alexandria-context>mock</alexandria-context>"),
+      clearAll: vi.fn(),
+      clearSession: vi.fn(),
+    } as unknown as ContextStore;
+
+    await runStdioHook(translate, "{}", io, { contextStore: mockStore });
+
+    expect(stdoutWrites.length).toBe(1);
+    const parsed = JSON.parse(stdoutWrites[0]);
+    expect(parsed.injectSteps).toEqual([{ ephemeralMessage: "<alexandria-context>mock</alexandria-context>" }]);
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it("returns empty for antigravity PostToolUse", async () => {
+    const raw = { hook_event_name: "PostToolUse" };
+    const event: CanonicalHookEvent = {
+      session_id: "sess-4",
+      project_name: "/repo",
+      platform: "antigravity",
+      hook_event_name: "PostToolUse",
+      event_data: buildEventData({ tool_name: "Bash" }),
+    };
+    const translate = vi.fn(() => event);
+    const { io, stdoutWrites, exitCodes } = fakeIO(JSON.stringify(raw));
+
+    const mockStore = {
+      refresh: vi.fn(async () => "<alexandria-context>mock</alexandria-context>"),
+      clearAll: vi.fn(),
+      clearSession: vi.fn(),
+    } as unknown as ContextStore;
+
+    await runStdioHook(translate, "{}", io, { contextStore: mockStore });
+
+    expect(stdoutWrites.length).toBe(1);
+    const parsed = JSON.parse(stdoutWrites[0]);
+    expect(parsed).toEqual({});
+    expect(exitCodes).toEqual([0]);
+  });
+
+  describe("formatHookOutput", () => {
+    it("returns hookSpecificOutput for claude-code", () => {
+      const result = formatHookOutput("claude-code", "UserPromptSubmit", "test");
+      expect(result).toEqual({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: "test" } });
+    });
+
+    it("returns hookSpecificOutput for codex", () => {
+      const result = formatHookOutput("codex", "UserPromptSubmit", "test");
+      expect(result).toEqual({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: "test" } });
+    });
+
+    it("returns hookSpecificOutput for cursor", () => {
+      const result = formatHookOutput("cursor", "PostToolUse", "test");
+      expect(result).toEqual({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: "test" } });
+    });
+
+    it("returns context for hermes", () => {
+      const result = formatHookOutput("hermes", "UserPromptSubmit", "test");
+      expect(result).toEqual({ context: "test" });
+    });
+
+    it("returns injectSteps for antigravity UserPromptSubmit", () => {
+      const result = formatHookOutput("antigravity", "UserPromptSubmit", "test");
+      expect(result).toEqual({ injectSteps: [{ ephemeralMessage: "test" }] });
+    });
+
+    it("returns empty for antigravity PostToolUse", () => {
+      const result = formatHookOutput("antigravity", "PostToolUse", "test");
+      expect(result).toEqual({});
+    });
   });
 
   it("falls back to default stdout when contextStore returns null", async () => {

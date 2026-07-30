@@ -258,6 +258,24 @@ var import_node_child_process = require("node:child_process");
 var import_node_os = require("node:os");
 var import_node_path = require("node:path");
 var import_node_fs = require("node:fs");
+function formatHookOutput(platform, hookEventName, contextText) {
+  switch (platform) {
+    case "hermes":
+      return { context: contextText };
+    case "antigravity":
+      if (hookEventName === "UserPromptSubmit") {
+        return { injectSteps: [{ ephemeralMessage: contextText }] };
+      }
+      return {};
+    default:
+      return {
+        hookSpecificOutput: {
+          hookEventName,
+          additionalContext: contextText
+        }
+      };
+  }
+}
 var HERMES_HOME = (0, import_node_path.normalize)((0, import_node_path.join)((0, import_node_os.homedir)(), ".hermes"));
 var STATE_DB = (0, import_node_path.join)(HERMES_HOME, "state.db");
 function resolveProjectPath(cwd) {
@@ -324,9 +342,9 @@ async function runStdioHook(translate2, stdout = "{}", io = defaultIO, options) 
         event.platform
       );
       if (contextText) {
-        io.writeStdout(JSON.stringify({
-          hookSpecificOutput: { additionalContext: contextText }
-        }));
+        io.writeStdout(JSON.stringify(
+          formatHookOutput(event.platform, event.hook_event_name, contextText)
+        ));
         io.exit(0);
         return;
       }
