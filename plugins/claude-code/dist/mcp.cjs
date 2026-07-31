@@ -54,11 +54,12 @@ function isToolsCacheStale(cacheRef) {
 async function processJsonRpcMessage(request, serverUrl, apiKey, toolsCacheRef, fetchFn = globalThis.fetch) {
   const req = request;
   if (req.method === "initialize") {
+    const requested = req.params?.protocolVersion;
     return JSON.stringify({
       jsonrpc: "2.0",
       id: req.id,
       result: {
-        protocolVersion: PROTOCOL_VERSION,
+        protocolVersion: requested || PROTOCOL_VERSION,
         capabilities: { tools: {} },
         serverInfo: { name: "alexandria-mcp-relay", version: RELAY_VERSION }
       }

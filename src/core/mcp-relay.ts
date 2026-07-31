@@ -45,10 +45,13 @@ export async function processJsonRpcMessage(
   const req = request as { jsonrpc: string; method: string; id?: number | string; params?: unknown };
 
   if (req.method === "initialize") {
+    // Echo the client's requested protocol version so newer clients
+    // (e.g. Claude Code 2.x with 2025-11-25) accept the handshake.
+    const requested = (req.params as { protocolVersion?: string } | undefined)?.protocolVersion;
     return JSON.stringify({
       jsonrpc: "2.0", id: req.id,
       result: {
-        protocolVersion: PROTOCOL_VERSION,
+        protocolVersion: requested || PROTOCOL_VERSION,
         capabilities: { tools: {} },
         serverInfo: { name: "alexandria-mcp-relay", version: RELAY_VERSION },
       },
