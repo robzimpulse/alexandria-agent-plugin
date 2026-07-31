@@ -31,17 +31,31 @@ For MCP tool access (Alexandria server's tools exposed to the host agent):
 stdin (JSON-RPC frames) → mcp-relay.ts → proxy to Alexandria server /api/mcp → stdout (JSON-RPC frames)
 ```
 
+### The shared runner (`src/core/runner.ts`)
+
+Every stdio adapter's `cli.ts` delegates to `runStdioHook(translate, stdout, io, { contextStore })`, which:
+
+1. Reads + `JSON.parse`s stdin, calls the adapter's `translate(raw)` → `CanonicalHookEvent`.
+2. **Overwrites the adapter's `project_name`** via `resolveProjectName()`: Hermes `~/.hermes/state.db` sqlite lookup by session_id → `git rev-parse --show-toplevel` from cwd → `basename(cwd)` → `"General"`.
+3. `sendEvent()` → POST `/api/hooks`.
+4. Context injection fires **only** for `UserPromptSubmit`/`PostToolUse` and only when a `ContextStore` is passed. Output format per platform (`formatHookOutput`):
+   - claude-code / codex / cursor → `{ hookSpecificOutput: { hookEventName, additionalContext } }`
+   - hermes → `{ context }`
+   - antigravity → `{ injectSteps: [{ ephemeralMessage }] }` (UserPromptSubmit only; other events get `{}`)
+
+On any error the default `stdout` is written and the process exits 0 (fail-silent, below).
+
 ### src/ layout
 
 | Path | Role |
 |---|---|
 | `src/core/schema.ts` | `CanonicalHookEvent` + `EventData` types — the universal event format |
-| `src/core/runner.ts` | `runStdioHook()` reads stdin, calls adapter `translate()`, sends event, optionally fetches context via `ContextStore`, writes platform-specific stdout |
-| `src/core/client.ts` | `sendEvent()` POSTs to Alexandria server, logs to `~/.alexandria/plugin.log` |
-| `src/core/config.ts` | Loads server URL + API key from `~/.alexandria/config.json` or env vars `ALEXANDRIA_URL`/`ALEXANDRIA_API_KEY` |
-| `src/core/context-store.ts` | `ContextStore` class — fetches incremental observations from server per session, caches, renders `<alexandria-context>` markdown |
-| `src/core/mcp-relay.ts` | `runMcpRelay()` — proxies MCP JSON-RPC (initialize, tools/list, tools/call, ping) to Alexandria server |
-| `src/core/transcript-reader.ts` | Reads JSONL transcripts, detects platform, extracts user messages |
+| `src/core/runner.ts` | `runStdioHook()` + `formatHookOutput()` — stdin → translate → send → context injection |
+| `src/core/client.ts` | `sendEvent()` POSTs to `/api/hooks`; logs outcomes to `~/.alexandria/plugin.log` and a fuller record to `~/.alexandria/logs/<platform>.log` |
+| `src/core/config.ts` | Loads server URL + API key from `~/.alexandria/config.json` or env vars `ALEXANDRIA_URL`/`ALEXANDRIA_API_KEY` (env wins) |
+| `src/core/context-store.ts` | `ContextStore` — incremental per-session observation fetch (`/api/context-since`, cursor = `since_observation_id`), caches, renders `<alexandria-context>` markdown; logs to `~/.alexandria/context.log` |
+| `src/core/mcp-relay.ts` | `runMcpRelay()` — JSON-RPC proxy; terminates `initialize`/`ping` locally, caches `tools/list` for 60s, forwards `tools/call` verbatim |
+| `src/core/transcript-reader.ts` | Reads JSONL transcripts, detects platform, extracts user messages / tool-call steps |
 | `src/adapters/shared/buildEventData.ts` | Helper to build `EventData` with null defaults |
 | `src/adapters/<platform>/translate.ts` | Native payload → `CanonicalHookEvent` |
 | `src/adapters/<platform>/cli.ts` | Entry point: instantiates `ContextStore`, calls `runStdioHook(translate, ...)` |
@@ -52,19 +66,27 @@ stdin (JSON-RPC frames) → mcp-relay.ts → proxy to Alexandria server /api/mcp
 | Platform | Plugin dir | Hook events | Context injection mechanism | Notes |
 |---|---|---|---|---|
 | Claude Code | `plugins/claude-code/` | SessionStart, UserPromptSubmit, PostToolUse, Stop, SessionEnd | `hookSpecificOutput.additionalContext` | Bundled MCP relay via `.mcp.json` |
-| Codex | `plugins/codex/` | Same as claude-code | Same | Requires one-time `/hooks` trust |
-| Cursor | `plugins/cursor/` | UserPromptSubmit, PostToolUse | Same | Uses `conversation_id`, workspace-based |
-| Hermes | `plugins/hermes/` | on_session_start, pre_llm_call, post_tool_call, post_llm_call, on_session_end | `context` field in JSON output | Native names mapped to canonical via lookup table |
-| Antigravity | `plugins/antigravity/` | PreToolUse, PostToolUse, UserPromptSubmit/SessionStart, Stop | PreToolUse: MCP `context_inject` via fetch; UserPromptSubmit: `injectSteps.ephemeralMessage` | Separate entry modes (pre, post, preinvocation, stop) |
-| OpenCode | `src/adapters/opencode/plugin.ts` | session.created, message.updated, tool.execute.after, session.idle/deleted | N/A (no stdio hooks) | Native tool registration via `tool()` + event handlers |
+| Codex | `plugins/codex/` | Same as claude-code | Same | Requires one-time `/hooks` trust; edits to the hook definition re-trigger review — pass `--dangerously-bypass-hook-trust` for automated installs |
+| Cursor | `plugins/cursor/` | UserPromptSubmit, PostToolUse | Same | Session id = `conversation_id`; `project_name` from `workspace_roots[0]`; PostToolUse's top-level `file_path`/`edits` synthesized into `tool_input`, response in `result_json` |
+| Hermes | `plugins/hermes/` | on_session_start/on_session_reset → SessionStart, pre_llm_call → UserPromptSubmit, post_tool_call → PostToolUse, post_llm_call → Stop, on_session_end → SessionEnd | `context` field in JSON output | Lookup-table mapping; install.sh writes hook entries + allowlist into `~/.hermes/config.yaml` and registers a Python plugin (dashboard/serve backend needs plugin-discovery registration) |
+| Antigravity | `plugins/antigravity/` | PreToolUse, PostToolUse, PreInvocation (invocationNum 0 → SessionStart, else UserPromptSubmit), Stop | PreToolUse: MCP `context_inject` call from `handlePre()` (writes `{"decision":"allow","reason":<ctx>}`); PreInvocation: `injectSteps.ephemeralMessage` via ContextStore | Separate entry modes: pre, post, preinvocation, stop; PostToolUse/PreInvocation enrichment reads the transcript (`transcript.ts`) |
+| OpenCode | `src/adapters/opencode/plugin.ts` | session.created, message.updated, tool.execute.after, session.idle/deleted | N/A (no stdio hooks) | Native tool registration via `tool()`; server tools fetched via MCP `tools/list` (cached in `toolsCache`); `message.updated` emits empty `session_id`, `project_name` comes from the plugin's cwd arg |
+
+### MCP relay
+
+`runMcpRelay()` (each adapter's `mcp.ts`) proxies JSON-RPC to `${config.url}/api/mcp`:
+- Handles `initialize` / `ping` / `notifications/initialized` locally rather than forwarding.
+- Caches `tools/list` responses for 60s (`CACHE_TTL`); on fetch failure returns `{ tools: [] }`.
+- Forwards `tools/call` frames verbatim (30s timeout).
+- Reads stdin via LSP `Content-Length:` framing with a raw newline-delimited JSON fallback; always writes responses as `Content-Length` frames.
 
 ### Packaging
 
-`scripts/package-plugins.mjs` uses esbuild to bundle each adapter's `cli.ts` + `mcp.ts` into a standalone CJS blob under `plugins/<platform>/dist/`. The MCP relay config JSON (`.mcp.json`, `mcp_config.json`) is generated inline, not from template files. Plugin manifests get their `version` injected from `package.json`.
+`scripts/package-plugins.mjs` uses esbuild to bundle each adapter's `cli.ts` + `mcp.ts` into a standalone CJS blob under `plugins/<platform>/dist/`. It writes the MCP relay config JSON (`.mcp.json`, `mcp_config.json`) inline — not from templates — and injects the plugin manifest `version` from the root `package.json` to keep them in sync. Hermes output gets a shebang + `chmod 755`; OpenCode bundles to ESM `dist/plugin.js` with no manifest.
 
 ### Fail-silent principle
 
-The runner catches all errors from translate/sendEvent/logging. A malformed payload, unreachable server, or bad translate must never produce a nonzero exit, missing stdout, or stderr noise — the host platform's hook system would interpret that as the hook failing.
+The runner catches all errors from translate/sendEvent/logging. A malformed payload, unreachable server, or bad translate must never produce a nonzero exit, missing stdout, or stderr noise — the host platform's hook system would interpret that as the hook failing. `sendEvent()` never rejects: both success and failure funnel into `logOutcome`.
 
 ### Platform plugin documentation
 
