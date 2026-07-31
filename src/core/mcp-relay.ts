@@ -23,11 +23,23 @@ function logError(msg: string, err?: unknown): void {
 
 const PROTOCOL_VERSION = "2025-03-26";
 
+const CACHE_TTL = 60_000; // 1 minute
+
+function isToolsCacheStale(cacheRef: { current: unknown; cachedAt?: number }): boolean {
+  if (!cacheRef.current) return true;
+  // Empty tool list from a transient failure — retry on next request
+  const cached = cacheRef.current as { tools?: unknown[] } | null;
+  if (cached && Array.isArray(cached.tools) && cached.tools.length === 0) return true;
+  // Absolute TTL expiry
+  if (cacheRef.cachedAt && Date.now() - cacheRef.cachedAt > CACHE_TTL) return true;
+  return false;
+}
+
 export async function processJsonRpcMessage(
   request: unknown,
   serverUrl: string,
   apiKey: string | undefined,
-  toolsCacheRef: { current: unknown },
+  toolsCacheRef: { current: unknown; cachedAt?: number },
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<string | null> {
   const req = request as { jsonrpc: string; method: string; id?: number | string; params?: unknown };
@@ -48,7 +60,7 @@ export async function processJsonRpcMessage(
   if (req.method === "ping") return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: {} });
 
   if (req.method === "tools/list") {
-    if (toolsCacheRef.current) {
+    if (toolsCacheRef.current && !isToolsCacheStale(toolsCacheRef)) {
       return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: toolsCacheRef.current });
     }
     try {
@@ -60,6 +72,7 @@ export async function processJsonRpcMessage(
       });
       const data = (await resp.json()) as any;
       toolsCacheRef.current = data?.result ?? { tools: [] };
+      toolsCacheRef.cachedAt = Date.now();
       return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: toolsCacheRef.current });
     } catch (err) {
       logError("tools/list failed", err);
@@ -94,7 +107,7 @@ export function runMcpRelay(
   deps?: { stdin?: NodeJS.ReadStream; stdout?: NodeJS.WriteStream; fetchFn?: typeof fetch },
 ): void {
   const serverUrl = `${config.url}/api/mcp`;
-  const toolsCacheRef: { current: unknown } = { current: null };
+  const toolsCacheRef: { current: unknown; cachedAt?: number } = { current: null };
   const stdin = deps?.stdin ?? process.stdin;
   const stdout = deps?.stdout ?? process.stdout;
   const fetchFn = deps?.fetchFn ?? globalThis.fetch;
@@ -119,11 +132,21 @@ export function runMcpRelay(
           .catch((e) => logError("processing", e));
         continue;
       }
+      // Fallback: raw newline-delimited JSON (used by newer MCP clients)
       const nl = buffer.indexOf("\n");
       if (nl === -1) break;
-      const garbage = buffer.slice(0, nl);
+      const line = buffer.slice(0, nl);
       buffer = buffer.slice(nl + 1);
-      if (garbage.trim()) logError("ignoring non-framed data", garbage.trim());
+      if (line.trim()) {
+        const parsed = safeParse(line.trim());
+        if (parsed) {
+          processJsonRpcMessage(parsed, serverUrl, config.apiKey, toolsCacheRef, fetchFn)
+            .then((r) => { if (r) writeFrame(r); })
+            .catch((e) => logError("processing", e));
+        } else {
+          logError("ignoring non-MCP data", line.trim());
+        }
+      }
     }
   }
 

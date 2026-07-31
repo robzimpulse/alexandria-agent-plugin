@@ -43,6 +43,14 @@ function logError(msg, err) {
   }
 }
 var PROTOCOL_VERSION = "2025-03-26";
+var CACHE_TTL = 6e4;
+function isToolsCacheStale(cacheRef) {
+  if (!cacheRef.current) return true;
+  const cached = cacheRef.current;
+  if (cached && Array.isArray(cached.tools) && cached.tools.length === 0) return true;
+  if (cacheRef.cachedAt && Date.now() - cacheRef.cachedAt > CACHE_TTL) return true;
+  return false;
+}
 async function processJsonRpcMessage(request, serverUrl, apiKey, toolsCacheRef, fetchFn = globalThis.fetch) {
   const req = request;
   if (req.method === "initialize") {
@@ -59,7 +67,7 @@ async function processJsonRpcMessage(request, serverUrl, apiKey, toolsCacheRef, 
   if (req.method === "notifications/initialized") return null;
   if (req.method === "ping") return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: {} });
   if (req.method === "tools/list") {
-    if (toolsCacheRef.current) {
+    if (toolsCacheRef.current && !isToolsCacheStale(toolsCacheRef)) {
       return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: toolsCacheRef.current });
     }
     try {
@@ -71,6 +79,7 @@ async function processJsonRpcMessage(request, serverUrl, apiKey, toolsCacheRef, 
       });
       const data = await resp.json();
       toolsCacheRef.current = data?.result ?? { tools: [] };
+      toolsCacheRef.cachedAt = Date.now();
       return JSON.stringify({ jsonrpc: "2.0", id: req.id, result: toolsCacheRef.current });
     } catch (err) {
       logError("tools/list failed", err);
@@ -127,9 +136,18 @@ ${text}`);
       }
       const nl = buffer.indexOf("\n");
       if (nl === -1) break;
-      const garbage = buffer.slice(0, nl);
+      const line = buffer.slice(0, nl);
       buffer = buffer.slice(nl + 1);
-      if (garbage.trim()) logError("ignoring non-framed data", garbage.trim());
+      if (line.trim()) {
+        const parsed = safeParse(line.trim());
+        if (parsed) {
+          processJsonRpcMessage(parsed, serverUrl, config.apiKey, toolsCacheRef, fetchFn).then((r) => {
+            if (r) writeFrame(r);
+          }).catch((e) => logError("processing", e));
+        } else {
+          logError("ignoring non-MCP data", line.trim());
+        }
+      }
     }
   }
   stdin.setEncoding("utf8");
